@@ -18,7 +18,10 @@ export class RolesService {
   }
 
   async findOne(condition): Promise<Role | null> {
-    return this.rolesRepository.findOne(condition);
+    return this.rolesRepository.findOne({
+      where: condition,
+      relations: ['permissions'],
+    });
   }
 
   async update(id: number, data): Promise<unknown> {
