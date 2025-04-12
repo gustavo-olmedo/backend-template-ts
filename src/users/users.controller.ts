@@ -29,13 +29,13 @@ export class UsersController {
     data: Partial<User>[];
     meta: { total: number; page: number; lastPage: number };
   }> {
-    return this.usersService.paginate(page);
+    return this.usersService.paginate(page, ['role']);
   }
 
   @Post()
   async create(@Body() body: UserCreateDto): Promise<User> {
     const password = await bcrypt.hash('1234', 12);
-    return this.usersService.create({
+    return this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
@@ -46,7 +46,7 @@ export class UsersController {
 
   @Get('id')
   async get(@Param('id') id): Promise<User | null> {
-    return this.usersService.findOne({ id });
+    return this.usersService.findOne({ id }, ['role']);
   }
 
   @Put('id')
@@ -57,7 +57,7 @@ export class UsersController {
       role: { id: roleId },
     });
 
-    return this.usersService.findOne({ id });
+    return this.usersService.findOne({ id }, ['role']);
   }
 
   @Delete('id')

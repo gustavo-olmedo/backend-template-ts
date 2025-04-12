@@ -2,52 +2,25 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './models/user.entity';
+import { AbstractService } from 'src/shared/abstract.service';
 
 @Injectable()
-export class UsersService {
+export class UsersService extends AbstractService<User> {
   constructor(
     @InjectRepository(User) private readonly usersRepository: Repository<User>,
-  ) {}
-
-  async all(): Promise<User[]> {
-    return await this.usersRepository.find();
+  ) {
+    super(usersRepository);
   }
 
-  async paginate(page = 1) {
-    const take = 15;
-    const [users, total] = await this.usersRepository.findAndCount({
-      take,
-      skip: (page - 1) * take,
-    });
+  override async paginate(page = 1, relations) {
+    const { data, meta } = await super.paginate(page, relations);
+
     return {
-      data: users.map((user: User) => {
+      data: data.map((user: User) => {
         const { password, ...userWithoutPass } = user;
         return userWithoutPass;
       }),
-      meta: {
-        total,
-        page,
-        lastPage: Math.ceil(total / take),
-      },
+      meta,
     };
-  }
-
-  async create(data): Promise<User> {
-    return this.usersRepository.save(data);
-  }
-
-  async findOne(condition, relations?: string[]): Promise<User | null> {
-    return this.usersRepository.findOne({
-      where: condition,
-      relations,
-    });
-  }
-
-  async update(id: number, data): Promise<unknown> {
-    return this.usersRepository.update(id, data);
-  }
-
-  async delete(id: number): Promise<unknown> {
-    return this.usersRepository.delete(id);
   }
 }

@@ -23,7 +23,7 @@ export class RolesController {
     @Body('name') name: string,
     @Body('permissions') permissionIds: number[],
   ): Promise<Role> {
-    return this.rolesService.create({
+    return this.rolesService.save({
       name,
       permissions: permissionIds.map((id) => ({ id })),
     });
@@ -31,7 +31,7 @@ export class RolesController {
 
   @Get('id')
   async get(@Param('id') id): Promise<Role | null> {
-    return this.rolesService.findOne({ id });
+    return this.rolesService.findOne({ id }, ['permissions']);
   }
 
   @Put('id')
@@ -46,7 +46,7 @@ export class RolesController {
 
     const role = await this.rolesService.findOne({ id });
 
-    return this.rolesService.create({
+    return this.rolesService.update(id, {
       ...role,
       permissions: permissionIds.map((id) => ({ id })),
     });
