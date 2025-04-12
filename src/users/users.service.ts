@@ -13,6 +13,25 @@ export class UsersService {
     return await this.usersRepository.find();
   }
 
+  async paginate(page = 1) {
+    const take = 15;
+    const [users, total] = await this.usersRepository.findAndCount({
+      take,
+      skip: (page - 1) * take,
+    });
+    return {
+      data: users.map((user: User) => {
+        const { password, ...userWithoutPass } = user;
+        return userWithoutPass;
+      }),
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / take),
+      },
+    };
+  }
+
   async create(data): Promise<User> {
     return this.usersRepository.save(data);
   }
