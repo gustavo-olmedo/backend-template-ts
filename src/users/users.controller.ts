@@ -8,6 +8,7 @@ import {
   Post,
   Put,
   Query,
+  Req,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -17,12 +18,16 @@ import { UsersService } from './users.service';
 import { AuthGuard } from 'src/auth/auth/auth.guard';
 import { UserCreateDto } from './models/user.create.dto';
 import { UserUpdateDto } from './models/user.update.dto';
+import { AuthService } from 'src/auth/auth.service';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(AuthGuard)
 @Controller('users')
 export class UsersController {
-  constructor(private usersService: UsersService) {}
+  constructor(
+    private usersService: UsersService,
+    private authService: AuthService,
+  ) {}
 
   @Get()
   async all(@Query('page') page: number): Promise<{
@@ -63,5 +68,12 @@ export class UsersController {
   @Delete('id')
   async delete(@Param('id') id: number) {
     return this.usersService.delete(id);
+  }
+
+  @Put('info')
+  async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
+    const id = await this.authService.userId(request);
+    await this.usersService.update(id, body);
+    return this.usersService.findOne({ id });
   }
 }

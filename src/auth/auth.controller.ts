@@ -18,6 +18,7 @@ import { Response, Request } from 'express';
 import { UsersService } from 'src/users/users.service';
 import { RegisterDto } from './models/register.dto';
 import { AuthGuard } from './auth/auth.guard';
+import { AuthService } from './auth.service';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller()
@@ -25,6 +26,7 @@ export class AuthController {
   constructor(
     private usersService: UsersService,
     private jwtService: JwtService,
+    private authService: AuthService,
   ) {}
 
   @Post('register')
@@ -33,7 +35,7 @@ export class AuthController {
       throw new BadRequestException('Password do not match!');
     }
     const hashedPassword = await bcrypt.hash(body.password, 12);
-    return this.usersService.create({
+    return this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
@@ -71,9 +73,8 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('user')
   async user(@Req() request: Request) {
-    const cookie = request.cookies['jwt'];
-    const data = await this.jwtService.verifyAsync(cookie);
-    return this.usersService.findOne({ id: data['id'] });
+    const id = await this.authService.userId(request);
+    return this.usersService.findOne({ id });
   }
 
   @UseGuards(AuthGuard)
