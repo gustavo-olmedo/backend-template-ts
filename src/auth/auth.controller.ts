@@ -38,6 +38,7 @@ export class AuthController {
       lastName: body.lastName,
       email: body.email,
       password: hashedPassword,
+      role: { id: 1 }, // guest id
     });
   }
 

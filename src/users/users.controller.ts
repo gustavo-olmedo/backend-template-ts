@@ -40,6 +40,7 @@ export class UsersController {
       lastName: body.lastName,
       email: body.email,
       password,
+      role: { id: body.roleId },
     });
   }
 
@@ -50,10 +51,10 @@ export class UsersController {
 
   @Put('id')
   async update(@Param('id') id: number, @Body() body: UserUpdateDto) {
+    const { roleId, ...data } = body;
     await this.usersService.update(id, {
-      firstName: body.firstName,
-      lastName: body.lastName,
-      email: body.email,
+      ...data,
+      role: { id: roleId },
     });
 
     return this.usersService.findOne({ id });
