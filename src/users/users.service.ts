@@ -23,4 +23,12 @@ export class UsersService {
       relations,
     });
   }
+
+  async update(id: number, data): Promise<unknown> {
+    return this.usersRepository.update(id, data);
+  }
+
+  async delete(id: number): Promise<unknown> {
+    return this.usersRepository.delete(id);
+  }
 }
