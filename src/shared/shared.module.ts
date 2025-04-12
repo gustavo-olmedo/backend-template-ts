@@ -8,5 +8,6 @@ import { JwtModule } from '@nestjs/jwt';
       signOptions: { expiresIn: '1d' },
     }),
   ],
+  exports: [JwtModule],
 })
 export class SharedModule {}

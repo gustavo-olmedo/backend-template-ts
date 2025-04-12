@@ -21,39 +21,39 @@ export class RolesController {
   @Post()
   async create(
     @Body('name') name: string,
-    @Body('permissions') permissionIds: number[],
+    @Body('permissions') permissionIds: string[],
   ): Promise<Role> {
     return this.rolesService.save({
       name,
-      permissions: permissionIds.map((id) => ({ id })),
+      permissions: permissionIds.map((uuid) => ({ uuid })),
     });
   }
 
-  @Get('id')
-  async get(@Param('id') id): Promise<Role | null> {
-    return this.rolesService.findOne({ id }, ['permissions']);
+  @Get('uuid')
+  async get(@Param('uuid') uuid): Promise<Role | null> {
+    return this.rolesService.findOne({ uuid }, ['permissions']);
   }
 
-  @Put('id')
+  @Put('uuid')
   async update(
-    @Param('id') id: number,
+    @Param('uuid') uuid: string,
     @Body('name') name: string,
-    @Body('permissions') permissionIds: number[],
+    @Body('permissions') permissionIds: string[],
   ) {
-    await this.rolesService.update(id, {
+    await this.rolesService.update(uuid, {
       name,
     });
 
-    const role = await this.rolesService.findOne({ id });
+    const role = await this.rolesService.findOne({ uuid });
 
-    return this.rolesService.update(id, {
+    return this.rolesService.update(uuid, {
       ...role,
-      permissions: permissionIds.map((id) => ({ id })),
+      permissions: permissionIds.map((uuid) => ({ uuid })),
     });
   }
 
-  @Delete('id')
-  async delete(@Param('id') id: number) {
-    return this.rolesService.delete(id);
+  @Delete('uuid')
+  async delete(@Param('uuid') uuid: string) {
+    return this.rolesService.delete(uuid);
   }
 }

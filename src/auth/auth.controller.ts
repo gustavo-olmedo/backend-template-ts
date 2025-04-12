@@ -16,7 +16,7 @@ import * as bcrypt from 'bcryptjs';
 import { Response, Request } from 'express';
 
 import { UsersService } from 'src/users/users.service';
-import { RegisterDto } from './models/register.dto';
+import { RegisterDto } from './dtos/register.dto';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth.service';
 
@@ -40,7 +40,7 @@ export class AuthController {
       lastName: body.lastName,
       email: body.email,
       password: hashedPassword,
-      role: { id: 1 }, // guest id
+      role: { uuid: 1 }, // guest uuid
     });
   }
 
@@ -62,7 +62,7 @@ export class AuthController {
     }
 
     const jwt = await this.jwtService.signAsync({
-      id: user.id,
+      uuid: user.uuid,
     });
 
     response.cookie('jwt', jwt, { httpOnly: true });
@@ -73,8 +73,8 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('user')
   async user(@Req() request: Request) {
-    const id = await this.authService.userId(request);
-    return this.usersService.findOne({ id });
+    const uuid = await this.authService.userId(request);
+    return this.usersService.findOne({ uuid });
   }
 
   @UseGuards(AuthGuard)

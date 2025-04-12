@@ -50,11 +50,11 @@ export abstract class AbstractService<T extends ObjectLiteral> {
     });
   }
 
-  async update(id: number, data): Promise<unknown> {
-    return this.repository.update(id, data);
+  async update(uuid: string, data): Promise<unknown> {
+    return this.repository.update(uuid, data);
   }
 
-  async delete(id: number): Promise<unknown> {
-    return this.repository.delete(id);
+  async delete(uuid: string): Promise<unknown> {
+    return this.repository.delete(uuid);
   }
 }

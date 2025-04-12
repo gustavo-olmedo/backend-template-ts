@@ -9,5 +9,5 @@ export class UserUpdateDto {
   @IsEmail()
   email: string;
   @IsNotEmpty()
-  roleId: number;
+  roleId: string;
 }

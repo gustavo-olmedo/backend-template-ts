@@ -17,8 +17,8 @@ import * as bcrypt from 'bcryptjs';
 import { User } from './models/user.entity';
 import { UsersService } from './users.service';
 import { AuthGuard } from 'src/auth/auth/auth.guard';
-import { UserCreateDto } from './models/user.create.dto';
-import { UserUpdateDto } from './models/user.update.dto';
+import { UserCreateDto } from './dtos/user.create.dto';
+import { UserUpdateDto } from './dtos/user.update.dto';
 import { AuthService } from 'src/auth/auth.service';
 
 @UseInterceptors(ClassSerializerInterceptor)
@@ -46,36 +46,36 @@ export class UsersController {
       lastName: body.lastName,
       email: body.email,
       password,
-      role: { id: body.roleId },
+      role: { uuid: body.roleId },
     });
   }
 
-  @Get('id')
-  async get(@Param('id') id): Promise<User | null> {
-    return this.usersService.findOne({ id }, ['role']);
+  @Get('uuid')
+  async get(@Param('uuid') uuid): Promise<User | null> {
+    return this.usersService.findOne({ uuid }, ['role']);
   }
 
-  @Put('id')
-  async update(@Param('id') id: number, @Body() body: UserUpdateDto) {
+  @Put('uuid')
+  async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
     const { roleId, ...data } = body;
-    await this.usersService.update(id, {
+    await this.usersService.update(uuid, {
       ...data,
-      role: { id: roleId },
+      role: { uuid: roleId },
     });
 
-    return this.usersService.findOne({ id }, ['role']);
+    return this.usersService.findOne({ uuid }, ['role']);
   }
 
-  @Delete('id')
-  async delete(@Param('id') id: number) {
-    return this.usersService.delete(id);
+  @Delete('uuid')
+  async delete(@Param('uuid') uuid: string) {
+    return this.usersService.delete(uuid);
   }
 
   @Put('info')
   async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
-    const id = await this.authService.userId(request);
-    await this.usersService.update(id, body);
-    return this.usersService.findOne({ id });
+    const uuid = await this.authService.userId(request);
+    await this.usersService.update(uuid, body);
+    return this.usersService.findOne({ uuid });
   }
 
   @Put('password')
@@ -87,9 +87,9 @@ export class UsersController {
     if (password !== passwordConfirm) {
       throw new BadRequestException('Password do not match!');
     }
-    const id = await this.authService.userId(request);
+    const uuid = await this.authService.userId(request);
     const hashedPassword = await bcrypt.hash(password, 12);
-    await this.usersService.update(id, { password: hashedPassword });
-    return this.usersService.findOne({ id });
+    await this.usersService.update(uuid, { password: hashedPassword });
+    return this.usersService.findOne({ uuid });
   }
 }
