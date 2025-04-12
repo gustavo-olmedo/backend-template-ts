@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { SharedModule } from './shared/shared.module';
+import { RolesModule } from './roles/roles.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SharedModule } from './shared/shared.module';
     UsersModule,
     AuthModule,
     SharedModule,
+    RolesModule,
   ],
 })
 export class AppModule {}
