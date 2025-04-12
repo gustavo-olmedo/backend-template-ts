@@ -16,4 +16,11 @@ export class UsersService {
   async create(data): Promise<User> {
     return this.usersRepository.save(data);
   }
+
+  async findOne(condition, relations?: string[]): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: condition,
+      relations,
+    });
+  }
 }
