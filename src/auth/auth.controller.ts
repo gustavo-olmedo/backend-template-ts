@@ -19,6 +19,7 @@ import { UsersService } from 'src/users/users.service';
 import { RegisterDto } from './dtos/register.dto';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth.service';
+import { RolesService } from 'src/roles/roles.service';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller()
@@ -27,6 +28,7 @@ export class AuthController {
     private usersService: UsersService,
     private jwtService: JwtService,
     private authService: AuthService,
+    private rolesService: RolesService,
   ) {}
 
   @Post('register')
@@ -34,13 +36,14 @@ export class AuthController {
     if (body.password !== body.passwordConfirm) {
       throw new BadRequestException('Password do not match!');
     }
+    const regularUser = await this.rolesService.findOne({ name: 'regular' });
     const hashedPassword = await bcrypt.hash(body.password, 12);
     return this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
       password: hashedPassword,
-      role: { uuid: 1 }, // guest uuid
+      role: { uuid: regularUser?.uuid }, // guest uuid
     });
   }
 
