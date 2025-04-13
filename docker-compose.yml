@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - 8000:3000
+    container_name: nest-backend
     volumes:
       - .:/app
     depends_on:
