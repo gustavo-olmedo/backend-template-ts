@@ -28,7 +28,7 @@
 ## Run initial seeds to setup security
 
 ```
-docker compose exec nest-backend sh seed:permissions-roles
+docker compose exec nest-backend yarn seed:permissions-roles
 ```
 
 ## DB setup

@@ -1,9 +1,9 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
-import { UsersModule } from 'src/users/users.module';
-import { SharedModule } from 'src/shared/shared.module';
+import { UsersModule } from '../users/users.module';
+import { SharedModule } from '../shared/shared.module';
 import { AuthService } from './auth.service';
-import { RolesModule } from 'src/roles/roles.module';
+import { RolesModule } from '../roles/roles.module';
 
 @Module({
   imports: [forwardRef(() => UsersModule), SharedModule, RolesModule],

@@ -1,10 +1,12 @@
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from '../app.module';
-import { Permission } from 'src/permissions/models/permission.entity';
-import { Role } from 'src/roles/models/role.entity';
 import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
-import { UsersService } from 'src/users/users.service';
+
+import { AppModule } from '../app.module';
+
+import { Permission } from '../permissions/models/permission.entity';
+import { Role } from '../roles/models/role.entity';
+import { UsersService } from '../users/users.service';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
@@ -66,6 +68,8 @@ async function bootstrap() {
     await rolesRepo.save(role);
   }
 
+  const adminRole = await rolesRepo.findOne({ where: { name: 'admin' } });
+
   // Create admin user
   const password = await bcrypt.hash(process.env.DEFAULT_ADMIN_PASSWORD!, 12);
 
@@ -74,6 +78,7 @@ async function bootstrap() {
     lastName: 'admin',
     email: process.env.DEFAULT_ADMIN_EMAIL,
     password,
+    role: { uuid: adminRole?.uuid }, // admin role uuid
   });
 
   console.log('✅ Permissions and roles created, admin user seeded.');

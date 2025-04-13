@@ -15,11 +15,11 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Response, Request } from 'express';
 
-import { UsersService } from 'src/users/users.service';
+import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dtos/register.dto';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth.service';
-import { RolesService } from 'src/roles/roles.service';
+import { RolesService } from '../roles/roles.service';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller()
@@ -36,14 +36,14 @@ export class AuthController {
     if (body.password !== body.passwordConfirm) {
       throw new BadRequestException('Password do not match!');
     }
-    const regularUser = await this.rolesService.findOne({ name: 'regular' });
+    const regularRole = await this.rolesService.findOne({ name: 'regular' });
     const hashedPassword = await bcrypt.hash(body.password, 12);
     return this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
       password: hashedPassword,
-      role: { uuid: regularUser?.uuid }, // guest uuid
+      role: { uuid: regularRole?.uuid }, // regular role uuid
     });
   }
 
