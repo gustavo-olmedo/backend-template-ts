@@ -5,6 +5,8 @@ import { AuthModule } from './auth/auth.module';
 import { SharedModule } from './shared/shared.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { APP_GUARD } from '@nestjs/core';
+import { PermissionsGuard } from './permissions/permissions.guard';
 
 @Module({
   imports: [
@@ -24,6 +26,12 @@ import { PermissionsModule } from './permissions/permissions.module';
     SharedModule,
     RolesModule,
     PermissionsModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: PermissionsGuard,
+    },
   ],
 })
 export class AppModule {}

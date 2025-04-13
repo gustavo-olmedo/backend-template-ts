@@ -20,6 +20,7 @@ import { AuthGuard } from 'src/auth/auth/auth.guard';
 import { UserCreateDto } from './dtos/user.create.dto';
 import { UserUpdateDto } from './dtos/user.update.dto';
 import { AuthService } from 'src/auth/auth.service';
+import { HasPermission } from 'src/permissions/has-permission.decorator';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(AuthGuard)
@@ -30,6 +31,7 @@ export class UsersController {
     private authService: AuthService,
   ) {}
 
+  @HasPermission('users')
   @Get()
   async all(@Query('page') page: number): Promise<{
     data: Partial<User>[];
@@ -38,6 +40,7 @@ export class UsersController {
     return this.usersService.paginate(page, ['role']);
   }
 
+  @HasPermission('users')
   @Post()
   async create(@Body() body: UserCreateDto): Promise<User> {
     const password = await bcrypt.hash('1234', 12);
@@ -50,11 +53,13 @@ export class UsersController {
     });
   }
 
+  @HasPermission('users')
   @Get('uuid')
   async get(@Param('uuid') uuid): Promise<User | null> {
     return this.usersService.findOne({ uuid }, ['role']);
   }
 
+  @HasPermission('users')
   @Put('uuid')
   async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
     const { roleUUID, ...data } = body;
@@ -66,11 +71,13 @@ export class UsersController {
     return this.usersService.findOne({ uuid }, ['role']);
   }
 
+  @HasPermission('users')
   @Delete('uuid')
   async delete(@Param('uuid') uuid: string) {
     return this.usersService.delete(uuid);
   }
 
+  @HasPermission('users')
   @Put('info')
   async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
     const uuid = await this.authService.userUUID(request);
@@ -78,6 +85,7 @@ export class UsersController {
     return this.usersService.findOne({ uuid });
   }
 
+  @HasPermission('users')
   @Put('password')
   async updatePassword(
     @Req() request,
