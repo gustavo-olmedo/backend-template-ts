@@ -25,6 +25,12 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Run initial seeds to setup security
+
+```
+docker compose exec nest-backend sh seed:permissions-roles
+```
+
 ## DB setup
 
 1. Open PgAdmin in the web browser by visiting http://localhost:5050 (assuming we're using the default configuration in the docker-compose.yml file).
