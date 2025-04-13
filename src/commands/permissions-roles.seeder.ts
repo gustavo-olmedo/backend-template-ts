@@ -67,12 +67,12 @@ async function bootstrap() {
   }
 
   // Create admin user
-  const password = await bcrypt.hash('admin', 12);
+  const password = await bcrypt.hash(process.env.DEFAULT_ADMIN_PASSWORD!, 12);
 
   await usersService.save({
     firstName: 'admin',
     lastName: 'admin',
-    email: 'admin@mail.com',
+    email: process.env.DEFAULT_ADMIN_EMAIL,
     password,
   });
 

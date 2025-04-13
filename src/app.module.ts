@@ -7,18 +7,22 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { APP_GUARD } from '@nestjs/core';
 import { PermissionsGuard } from './permissions/permissions.guard';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
     TypeOrmModule.forRoot({
       type: 'postgres',
-      host: 'db',
-      port: 5432,
-      password: 'postgres',
-      username: 'postgres',
-      database: 'postgres',
+      host: process.env.POSTGRES_HOST,
+      port: parseInt(process.env.POSTGRES_PORT!, 10) || 5432,
+      password: process.env.POSTGRES_PASSWORD,
+      username: process.env.POSTGRES_USER,
+      database: process.env.POSTGRES_DATABASE,
       synchronize: true,
-      autoLoadEntities: true,
+      autoLoadEntities: process.env.ENV !== 'production',
       logging: true,
     }),
     UsersModule,
