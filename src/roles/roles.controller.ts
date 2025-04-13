@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Post,
   Put,
@@ -12,6 +13,7 @@ import { Role } from './models/role.entity';
 import { RolesService } from './roles.service';
 import { HasPermission } from '../permissions/has-permission.decorator';
 import { AuthGuard } from '../auth/auth/auth.guard';
+import { Permission } from '../permissions/models/permission.entity';
 
 @UseGuards(AuthGuard)
 @Controller('roles')
@@ -49,20 +51,19 @@ export class RolesController {
     @Body('name') name: string,
     @Body('permissions') permissionUUIDs: string[],
   ) {
-    await this.rolesService.update(uuid, {
-      name,
-    });
-
     const role = await this.rolesService.findOne({ uuid }, ['permissions']);
 
+    if (!role) throw new NotFoundException();
+
+    role.name = name;
+
     if (permissionUUIDs) {
-      return this.rolesService.update(uuid, {
-        ...role,
-        permissions: permissionUUIDs.map((uuid) => ({ uuid })),
-      });
-    } else {
-      return role;
+      role.permissions = permissionUUIDs.map(
+        (uuid) => ({ uuid }) as Permission,
+      );
     }
+
+    return this.rolesService.save(role);
   }
 
   @HasPermission('roles')
