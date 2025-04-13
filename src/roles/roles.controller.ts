@@ -31,12 +31,12 @@ export class RolesController {
     });
   }
 
-  @Get('uuid')
+  @Get(':uuid')
   async get(@Param('uuid') uuid): Promise<Role | null> {
     return this.rolesService.findOne({ uuid }, ['permissions']);
   }
 
-  @Put('uuid')
+  @Put(':uuid')
   async update(
     @Param('uuid') uuid: string,
     @Body('name') name: string,
@@ -54,7 +54,7 @@ export class RolesController {
     });
   }
 
-  @Delete('uuid')
+  @Delete(':uuid')
   async delete(@Param('uuid') uuid: string) {
     return this.rolesService.delete(uuid);
   }
