@@ -54,13 +54,13 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Get('uuid')
+  @Get(':uuid')
   async get(@Param('uuid') uuid): Promise<User | null> {
     return this.usersService.findOne({ uuid }, ['role']);
   }
 
   @HasPermission('users')
-  @Put('uuid')
+  @Put(':uuid')
   async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
     const { roleUUID, ...data } = body;
     await this.usersService.update(uuid, {
@@ -72,7 +72,7 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Delete('uuid')
+  @Delete(':uuid')
   async delete(@Param('uuid') uuid: string) {
     return this.usersService.delete(uuid);
   }
