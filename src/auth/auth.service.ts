@@ -8,6 +8,7 @@ export class AuthService {
   async userUUID(request: Request): Promise<string> {
     const cookie = request.cookies['jwt'];
     const data = await this.jwtService.verifyAsync(cookie);
+    console.log('data', data);
     return data['uuid'];
   }
 }

@@ -60,28 +60,14 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Put(':uuid')
-  async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
+  @Put('info')
+  async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
+    const uuid = await this.authService.userUUID(request);
     const { roleUUID, ...data } = body;
     await this.usersService.update(uuid, {
       ...data,
       role: { uuid: roleUUID },
     });
-
-    return this.usersService.findOne({ uuid }, ['role']);
-  }
-
-  @HasPermission('users')
-  @Delete(':uuid')
-  async delete(@Param('uuid') uuid: string) {
-    return this.usersService.delete(uuid);
-  }
-
-  @HasPermission('users')
-  @Put('info')
-  async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
-    const uuid = await this.authService.userUUID(request);
-    await this.usersService.update(uuid, body);
     return this.usersService.findOne({ uuid });
   }
 
@@ -99,5 +85,23 @@ export class UsersController {
     const hashedPassword = await bcrypt.hash(password, 12);
     await this.usersService.update(uuid, { password: hashedPassword });
     return this.usersService.findOne({ uuid });
+  }
+
+  @HasPermission('users')
+  @Put(':uuid')
+  async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
+    const { roleUUID, ...data } = body;
+    await this.usersService.update(uuid, {
+      ...data,
+      role: { uuid: roleUUID },
+    });
+
+    return this.usersService.findOne({ uuid }, ['role']);
+  }
+
+  @HasPermission('users')
+  @Delete(':uuid')
+  async delete(@Param('uuid') uuid: string) {
+    return this.usersService.delete(uuid);
   }
 }
