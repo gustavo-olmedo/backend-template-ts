@@ -21,11 +21,11 @@ export class RolesController {
   @Post()
   async create(
     @Body('name') name: string,
-    @Body('permissions') permissionIds: string[],
+    @Body('permissions') permissionUUIDs: string[],
   ): Promise<Role> {
     return this.rolesService.save({
       name,
-      permissions: permissionIds.map((uuid) => ({ uuid })),
+      permissions: permissionUUIDs.map((uuid) => ({ uuid })),
     });
   }
 
@@ -38,7 +38,7 @@ export class RolesController {
   async update(
     @Param('uuid') uuid: string,
     @Body('name') name: string,
-    @Body('permissions') permissionIds: string[],
+    @Body('permissions') permissionUUIDs: string[],
   ) {
     await this.rolesService.update(uuid, {
       name,
@@ -48,7 +48,7 @@ export class RolesController {
 
     return this.rolesService.update(uuid, {
       ...role,
-      permissions: permissionIds.map((uuid) => ({ uuid })),
+      permissions: permissionUUIDs.map((uuid) => ({ uuid })),
     });
   }
 

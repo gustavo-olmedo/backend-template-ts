@@ -9,5 +9,5 @@ export class UserCreateDto {
   @IsEmail()
   email: string;
   @IsNotEmpty()
-  roleId: string;
+  roleUUID: string;
 }

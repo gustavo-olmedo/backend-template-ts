@@ -46,7 +46,7 @@ export class UsersController {
       lastName: body.lastName,
       email: body.email,
       password,
-      role: { uuid: body.roleId },
+      role: { uuid: body.roleUUID },
     });
   }
 
@@ -57,10 +57,10 @@ export class UsersController {
 
   @Put('uuid')
   async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
-    const { roleId, ...data } = body;
+    const { roleUUID, ...data } = body;
     await this.usersService.update(uuid, {
       ...data,
-      role: { uuid: roleId },
+      role: { uuid: roleUUID },
     });
 
     return this.usersService.findOne({ uuid }, ['role']);
@@ -73,7 +73,7 @@ export class UsersController {
 
   @Put('info')
   async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
-    const uuid = await this.authService.userId(request);
+    const uuid = await this.authService.userUUID(request);
     await this.usersService.update(uuid, body);
     return this.usersService.findOne({ uuid });
   }
@@ -87,7 +87,7 @@ export class UsersController {
     if (password !== passwordConfirm) {
       throw new BadRequestException('Password do not match!');
     }
-    const uuid = await this.authService.userId(request);
+    const uuid = await this.authService.userUUID(request);
     const hashedPassword = await bcrypt.hash(password, 12);
     await this.usersService.update(uuid, { password: hashedPassword });
     return this.usersService.findOne({ uuid });

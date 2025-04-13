@@ -24,6 +24,6 @@ export class User {
   password: string;
 
   @ManyToOne(() => Role)
-  @JoinColumn({ name: 'roleId' })
+  @JoinColumn({ name: 'roleUUID' })
   role: Role;
 }
