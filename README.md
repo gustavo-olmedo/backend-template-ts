@@ -162,6 +162,228 @@ $ yarn run test:e2e
 $ yarn run test:cov
 ```
 
+## 📡 API Endpoints (with curl examples)
+
+> 🧠 Replace `<TOKEN>` with your JWT when required.
+
+---
+
+### 🔐 Auth
+
+#### `POST /api/login`
+
+Authenticate a user and return a JWT.
+
+```bash
+curl -X POST http://localhost:8000/api/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "admin@mail.com",
+    "password": "admin"
+  }'
+```
+
+#### `POST /api/register`
+
+Register a new user.
+
+```bash
+curl -X POST http://localhost:8000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "gustavo register",
+    "lastName": "olmedo register",
+    "email": "mail@mail.com",
+    "password": "Password",
+    "passwordConfirm": "Password"
+  }'
+```
+
+#### `GET /api/user`
+
+Get current user info.
+
+```bash
+curl http://localhost:8000/api/user \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+#### `POST /api/logout`
+
+Log out the current user.
+
+```bash
+curl -X POST http://localhost:8000/api/logout \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+### 👥 Users
+
+#### `GET /api/users`
+
+List all users.
+
+```bash
+curl http://localhost:8000/api/users \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+#### `GET /api/users/:uuid`
+
+Get a single user by UUID.
+
+```bash
+curl http://localhost:8000/api/users/<USER_UUID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+#### `POST /api/users`
+
+Create a new user.
+
+```bash
+curl -X POST http://localhost:8000/api/users \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "gustavo",
+    "lastName": "olmedo",
+    "email": "mail@mail.com",
+    "password": "Password",
+    "passwordConfirm": "Password",
+    "roleUUID": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
+  }'
+```
+
+#### `PUT /api/users/:uuid`
+
+Update a user by UUID.
+
+```bash
+curl -X PUT http://localhost:8000/api/users/<USER_UUID> \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "gustavo",
+    "lastName": "olmedo",
+    "email": "golmedo@mail.com",
+    "roleUUID": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
+  }'
+```
+
+#### `PUT /api/users/info`
+
+Update current user's info.
+
+```bash
+curl -X PUT http://localhost:8000/api/users/info \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "gustavo",
+    "lastName": "olmedo",
+    "email": "admin@mail.com",
+    "roleUUID": "13f132db-ab52-4288-a25b-5025c6153bfd"
+  }'
+```
+
+#### `PUT /api/users/password`
+
+Change current user's password.
+
+```bash
+curl -X PUT http://localhost:8000/api/users/password \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "password": "admin",
+    "passwordConfirm": "admin"
+  }'
+```
+
+#### `DELETE /api/users/:uuid`
+
+Delete a user by UUID.
+
+```bash
+curl -X DELETE http://localhost:8000/api/users/<USER_UUID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+### 🔐 Permissions
+
+#### `GET /api/permissions`
+
+List all permissions.
+
+```bash
+curl http://localhost:8000/api/permissions \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+### 🛡️ Roles
+
+#### `GET /api/roles`
+
+List all roles.
+
+```bash
+curl http://localhost:8000/api/roles \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+#### `GET /api/roles/:uuid`
+
+Get a role by UUID.
+
+```bash
+curl http://localhost:8000/api/roles/<ROLE_UUID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+#### `POST /api/roles`
+
+Create a new role.
+
+```bash
+curl -X POST http://localhost:8000/api/roles \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test",
+    "permissions": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
+  }'
+```
+
+#### `PUT /api/roles/:uuid`
+
+Update a role.
+
+```bash
+curl -X PUT http://localhost:8000/api/roles/<ROLE_UUID> \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "test",
+    "permissions": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
+  }'
+```
+
+#### `DELETE /api/roles/:uuid`
+
+Delete a role.
+
+```bash
+curl -X DELETE http://localhost:8000/api/roles/<ROLE_UUID> \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
 ## Deployment
 
 When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
