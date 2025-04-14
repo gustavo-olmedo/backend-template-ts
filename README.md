@@ -1,25 +1,125 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🐳 NestJS Backend Template
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A ready-to-use NestJS backend template with:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- PostgreSQL via Docker
+- Role & Permission system (with seeder)
+- Environment-based configuration
+- Authentication with JWT
+
+## 🚀 Getting Started
+
+### 1️⃣ Clone the repository
+
+```bash
+git clone https://github.com/gustavo-olmedo/backend-template-ts.git
+cd backend-template-ts
+```
+
+### 2️⃣ Install dependencies
+
+```bash
+yarn install
+```
+
+> This will install all required packages and fix common post-install issues.
+
+### 3️⃣ Configure environment variables
+
+Create a `.env` file based on the provided `.env.example`:
+
+```bash
+cp .env.example .env
+```
+
+Fill in the values (or leave the defaults):
+
+```env
+ENV=development
+
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+POSTGRES_PASSWORD=postgres
+POSTGRES_USER=postgres
+POSTGRES_DATABASE=postgres
+
+DEFAULT_ADMIN_EMAIL=admin@mail.com
+DEFAULT_ADMIN_PASSWORD=admin
+
+JWT_SECRET=your-secret-key
+```
+
+> 🔐 Make sure to use a strong `JWT_SECRET` in production!
+
+### 4️⃣ Start the application
+
+Use Docker Compose to spin up the backend and Postgres services:
+
+```bash
+docker compose up --build
+```
+
+Wait until the services are fully running (Nest app should log that it's ready).
+
+### 5️⃣ Seed roles, permissions, and the default admin user
+
+In a **separate terminal**, run the following:
+
+```bash
+docker compose exec nest-backend yarn seed:permissions-roles
+```
+
+This will:
+
+- Create the roles: `admin`, `regular`
+- Create the permissions: `view_users`, `edit_users`, `view_roles`, `edit_roles`
+- Create an **admin user** using:
+  - `DEFAULT_ADMIN_EMAIL`
+  - `DEFAULT_ADMIN_PASSWORD`
+
+## 🔐 Logging In
+
+After seeding, you can log in using the admin credentials defined in your `.env` file:
+
+```
+Email:    admin@mail.com
+Password: admin
+```
+
+> You’ll receive a JWT token to authenticate future requests.
+
+## 🧪 Useful Commands
+
+| Command                                                        | Description                                               |
+| -------------------------------------------------------------- | --------------------------------------------------------- |
+| `yarn start:dev`                                               | Start the app in watch mode locally (if not using Docker) |
+| `docker compose up`                                            | Start the backend and DB                                  |
+| `docker compose exec nest-backend yarn seed:permissions-roles` | Seed initial data                                         |
+
+## 🛠 Tech Stack
+
+- [NestJS](https://nestjs.com/)
+- [TypeORM](https://typeorm.io/)
+- [PostgreSQL](https://www.postgresql.org/)
+- [Docker](https://www.docker.com/)
+- [Yarn](https://yarnpkg.com/)
+
+## 📂 Project Structure
+
+```bash
+src/
+  auth/              # Auth logic (JWT, guards, strategies)
+  users/             # Users module
+  roles/             # Roles module
+  permissions/       # Permissions module
+  shared/            # Shared logic (JwtModule, etc.)
+  commands/          # Seeder scripts (like permissions-roles)
+```
+
+## ✅ Next Steps
+
+- Set up Swagger docs
+- Add user profile management
 
 ## Description
 
@@ -46,13 +146,7 @@ docker compose exec nest-backend yarn seed:permissions-roles
    Password: postgres
 7. Click Save to save the server configuration.
 
-## Project setup
-
-```bash
-$ yarn install
-```
-
-## Compile and run the project
+## More about Compiling and runing the project
 
 ```bash
 # development
@@ -90,30 +184,3 @@ $ mau deploy
 ```
 
 With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
