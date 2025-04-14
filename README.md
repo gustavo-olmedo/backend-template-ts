@@ -118,8 +118,8 @@ src/
 
 ## ✅ Next Steps
 
+- Add/update tests
 - Set up Swagger docs
-- Add user profile management
 
 ## PgAdmin DB setup
 
