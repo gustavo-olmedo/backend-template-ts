@@ -121,17 +121,7 @@ src/
 - Set up Swagger docs
 - Add user profile management
 
-## Description
-
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Run initial seeds to setup security
-
-```
-docker compose exec nest-backend yarn seed:permissions-roles
-```
-
-## DB setup
+## PgAdmin DB setup
 
 1. Open PgAdmin in the web browser by visiting http://localhost:5050 (assuming we're using the default configuration in the docker-compose.yml file).
 2. Log in using your email and password in the docker-compose.yml file for the pgadmin service.
