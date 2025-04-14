@@ -68,6 +68,15 @@ async function bootstrap() {
     await rolesRepo.save(role);
   }
 
+  const adminUser = await usersService.findOne({
+    email: 'admin@mail.com',
+  });
+
+  if (adminUser) {
+    console.log('✅ Permissions and roles created, admin user seeded.');
+    process.exit();
+  }
+
   const adminRole = await rolesRepo.findOne({ where: { name: 'admin' } });
 
   // Create admin user
