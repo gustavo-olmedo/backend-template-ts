@@ -56,7 +56,7 @@ JWT_SECRET=your-secret-key
 Use Docker Compose to spin up the backend and Postgres services:
 
 ```bash
-docker compose up --build
+docker compose up
 ```
 
 Wait until the services are fully running (Nest app should log that it's ready).
