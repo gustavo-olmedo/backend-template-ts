@@ -13,6 +13,7 @@ import { ConfigModule } from '@nestjs/config';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
     }),
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -22,7 +23,7 @@ import { ConfigModule } from '@nestjs/config';
       username: process.env.POSTGRES_USER,
       database: process.env.POSTGRES_DATABASE,
       synchronize: true,
-      autoLoadEntities: process.env.ENV !== 'production',
+      autoLoadEntities: process.env.NODE_ENV !== 'production',
       logging: true,
     }),
     UsersModule,
