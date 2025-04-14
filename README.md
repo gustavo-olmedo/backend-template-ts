@@ -35,7 +35,7 @@ cp .env.example .env
 Fill in the values (or leave the defaults):
 
 ```env
-ENV=development
+NODE_ENV=development
 
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
@@ -66,7 +66,7 @@ Wait until the services are fully running (Nest app should log that it's ready).
 In a **separate terminal**, run the following:
 
 ```bash
-docker compose exec nest-backend yarn seed:permissions-roles
+yarn seed:permissions-roles:docker
 ```
 
 This will:
@@ -152,6 +152,16 @@ $ yarn run start:prod
 ## Run tests
 
 ```bash
+
+# unit tests using containers
+$ yarn run test:docker
+
+# e2e tests using containers
+$ yarn run test:e2e:docker
+
+# test coverage using containers
+$ yarn run test:cov:docker
+
 # unit tests
 $ yarn run test
 
