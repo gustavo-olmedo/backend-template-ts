@@ -118,7 +118,6 @@ src/
 
 ## ✅ Next Steps
 
-- Add/update tests
 - Set up Swagger docs
 
 ## PgAdmin DB setup
