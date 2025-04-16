@@ -90,11 +90,11 @@ Password: admin
 
 ## 🧪 Useful Commands
 
-| Command                                                        | Description                                               |
-| -------------------------------------------------------------- | --------------------------------------------------------- |
-| `yarn start:dev`                                               | Start the app in watch mode locally (if not using Docker) |
-| `docker compose up`                                            | Start the backend and DB                                  |
-| `docker compose exec nest-backend yarn seed:permissions-roles` | Seed initial data                                         |
+| Command                       | Description                                               |
+| ----------------------------- | --------------------------------------------------------- |
+| `yarn start:dev`              | Start the app in watch mode locally (if not using Docker) |
+| `docker compose up`           | Start the backend and DB                                  |
+| `yarn seed:permissions-roles` | Seed initial data                                         |
 
 ## 🛠 Tech Stack
 
