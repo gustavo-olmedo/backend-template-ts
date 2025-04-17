@@ -77,7 +77,7 @@ export class AuthController {
   @Get('user')
   async user(@Req() request: Request) {
     const uuid = await this.authService.userUUID(request);
-    return this.usersService.findOne({ uuid });
+    return this.usersService.findOne({ uuid }, ['role']);
   }
 
   @UseGuards(AuthGuard)
