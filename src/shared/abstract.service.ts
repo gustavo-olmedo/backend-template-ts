@@ -24,7 +24,7 @@ export abstract class AbstractService<T extends ObjectLiteral> {
     data: Partial<T>[];
     meta: { total: number; page: number; lastPage: number };
   }> {
-    const take = 15;
+    const take = 7;
     const [data, total] = await this.repository.findAndCount({
       take,
       skip: (page - 1) * take,
@@ -34,7 +34,7 @@ export abstract class AbstractService<T extends ObjectLiteral> {
       data,
       meta: {
         total,
-        page,
+        page: Number(page),
         lastPage: Math.ceil(total / take),
       },
     };
