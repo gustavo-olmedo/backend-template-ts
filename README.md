@@ -118,6 +118,9 @@ src/
 
 ## ✅ Next Steps
 
+- Add from/to dates to paginate to get all entities filter by date
+- Add query parameter to paginate to filter entities by different properties
+- Add sortBy and desc parameters to paginate to sort entities by property
 - Set up Swagger docs
 
 ## PgAdmin DB setup
