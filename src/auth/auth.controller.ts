@@ -70,7 +70,7 @@ export class AuthController {
 
     response.cookie('jwt', jwt, { httpOnly: true });
 
-    return user;
+    return { user, accessToken: jwt };
   }
 
   @UseGuards(AuthGuard)
