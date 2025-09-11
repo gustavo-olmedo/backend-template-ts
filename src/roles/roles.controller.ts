@@ -23,7 +23,7 @@ export class RolesController {
   @HasPermission('roles')
   @Get()
   async all() {
-    return this.rolesService.all();
+    return this.rolesService.all({ relations: ['permissions'] });
   }
 
   @HasPermission('roles')
