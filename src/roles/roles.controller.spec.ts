@@ -32,7 +32,15 @@ describe('RolesController', () => {
   });
 
   it('should return all roles', async () => {
-    const roles = [{ uuid: '1', name: 'admin', permissions: [] }];
+    const roles = [
+      {
+        uuid: '1',
+        name: 'admin',
+        permissions: [],
+        isActive: true,
+        isSystem: true,
+      },
+    ];
     rolesService.all.mockResolvedValue(roles);
 
     const result = await controller.all();
@@ -48,6 +56,8 @@ describe('RolesController', () => {
     const savedRole = {
       uuid: 'r1',
       name: 'editor',
+      isActive: true,
+      isSystem: true,
       permissions: input.permissions.map((uuid) => ({
         uuid,
         name: 'view_users',
@@ -64,7 +74,13 @@ describe('RolesController', () => {
   });
 
   it('should return a role by uuid', async () => {
-    const role = { uuid: 'r1', name: 'admin', permissions: [] };
+    const role = {
+      uuid: 'r1',
+      name: 'admin',
+      permissions: [],
+      isActive: true,
+      isSystem: true,
+    };
     rolesService.findOne.mockResolvedValue(role);
 
     const result = await controller.get('r1');
@@ -75,7 +91,13 @@ describe('RolesController', () => {
   });
 
   it('should update an existing role', async () => {
-    const existingRole = { uuid: 'r1', name: 'admin', permissions: [] };
+    const existingRole = {
+      uuid: 'r1',
+      name: 'admin',
+      permissions: [],
+      isActive: true,
+      isSystem: true,
+    };
     const updatedRole = {
       ...existingRole,
       name: 'regular',
