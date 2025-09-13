@@ -42,10 +42,12 @@ async function bootstrap() {
     {
       name: 'admin',
       permissionNames: permissionNames, // all permissions
+      isSystem: true,
     },
     {
       name: 'regular',
       permissionNames: ['view_users', 'view_roles'], // limited
+      isSystem: true,
     },
   ];
 

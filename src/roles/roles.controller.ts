@@ -24,7 +24,13 @@ export class RolesController {
   @HasPermission('roles')
   @Get()
   async all() {
-    return this.rolesService.all({ relations: ['permissions'] });
+    const roles = await this.rolesService.all({ relations: ['permissions'] });
+    return roles
+      .filter((r) => r.isActive)
+      .map((currentRole) => {
+        const { isActive, isSystem, ...role } = currentRole;
+        return role;
+      });
   }
 
   @HasPermission('roles')
@@ -74,6 +80,14 @@ export class RolesController {
   @HasPermission('roles')
   @Delete(':uuid')
   async delete(@Param('uuid') uuid: string) {
-    return this.rolesService.delete(uuid);
+    const role = await this.rolesService.findOne({ uuid });
+
+    if (!role) throw new NotFoundException();
+
+    if (!role.isSystem) {
+      role.isActive = false;
+    }
+
+    return this.rolesService.save(role);
   }
 }
