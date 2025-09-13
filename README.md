@@ -369,7 +369,7 @@ curl -X POST http://localhost:8000/api/roles \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test",
-    "permissions": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
+    "permissionUUIDs": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
   }'
 ```
 
@@ -383,7 +383,7 @@ curl -X PUT http://localhost:8000/api/roles/<ROLE_UUID> \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test",
-    "permissions": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
+    "permissionUUIDs": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
   }'
 ```
 

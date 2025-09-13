@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -30,8 +31,12 @@ export class RolesController {
   @Post()
   async create(
     @Body('name') name: string,
-    @Body('permissions') permissionUUIDs: string[],
+    @Body('permissionUUIDs') permissionUUIDs: string[],
   ): Promise<Role> {
+    if (!name || !permissionUUIDs || permissionUUIDs.length === 0) {
+      throw new BadRequestException();
+    }
+
     return this.rolesService.save({
       name,
       permissions: permissionUUIDs.map((uuid) => ({ uuid })),
@@ -49,7 +54,7 @@ export class RolesController {
   async update(
     @Param('uuid') uuid: string,
     @Body('name') name: string,
-    @Body('permissions') permissionUUIDs: string[],
+    @Body('permissionUUIDs') permissionUUIDs: string[],
   ) {
     const role = await this.rolesService.findOne({ uuid }, ['permissions']);
 
