@@ -6,6 +6,7 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
   Query,
@@ -61,7 +62,7 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Put('info')
+  @Patch('info')
   async updateInfo(@Req() request, @Body() body: UserUpdateInfoDto) {
     const uuid = await this.authService.userUUID(request);
     await this.usersService.update(uuid, {
@@ -71,7 +72,7 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Put('password')
+  @Patch('password')
   async updatePassword(
     @Req() request,
     @Body('password') password: string,

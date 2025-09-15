@@ -285,12 +285,12 @@ curl -X PUT http://localhost:8000/api/users/<USER_UUID> \
   }'
 ```
 
-#### `PUT /api/users/info`
+#### `PATCH /api/users/info`
 
 Update current user's info.
 
 ```bash
-curl -X PUT http://localhost:8000/api/users/info \
+curl -X PATCH http://localhost:8000/api/users/info \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -300,12 +300,12 @@ curl -X PUT http://localhost:8000/api/users/info \
   }'
 ```
 
-#### `PUT /api/users/password`
+#### `PATCH /api/users/password`
 
 Change current user's password.
 
 ```bash
-curl -X PUT http://localhost:8000/api/users/password \
+curl -X PATCH http://localhost:8000/api/users/password \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
