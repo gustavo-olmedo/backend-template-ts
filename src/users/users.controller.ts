@@ -21,6 +21,7 @@ import { UserCreateDto } from './dtos/user.create.dto';
 import { UserUpdateDto } from './dtos/user.update.dto';
 import { AuthService } from '../auth/auth.service';
 import { HasPermission } from '../permissions/has-permission.decorator';
+import { UserUpdateInfoDto } from './dtos/user.update.info.dto';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(AuthGuard)
@@ -61,12 +62,10 @@ export class UsersController {
 
   @HasPermission('users')
   @Put('info')
-  async updateInfo(@Req() request, @Body() body: UserUpdateDto) {
+  async updateInfo(@Req() request, @Body() body: UserUpdateInfoDto) {
     const uuid = await this.authService.userUUID(request);
-    const { roleUUID, ...data } = body;
     await this.usersService.update(uuid, {
-      ...data,
-      role: { uuid: roleUUID },
+      ...body,
     });
     return this.usersService.findOne({ uuid });
   }

@@ -297,7 +297,6 @@ curl -X PUT http://localhost:8000/api/users/info \
     "firstName": "gustavo",
     "lastName": "olmedo",
     "email": "admin@mail.com",
-    "roleUUID": "13f132db-ab52-4288-a25b-5025c6153bfd"
   }'
 ```
 
