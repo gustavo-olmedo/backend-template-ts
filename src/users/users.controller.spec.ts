@@ -7,6 +7,7 @@ import { AuthService } from '../auth/auth.service';
 import { UserCreateDto } from './dtos/user.create.dto';
 import { UserUpdateDto } from './dtos/user.update.dto';
 import { SharedModule } from '../shared/shared.module';
+import { UserUpdateInfoDto } from './dtos/user.update.info.dto';
 
 const mockUsersService = {
   paginate: jest.fn(),
@@ -78,11 +79,10 @@ describe('UsersController', () => {
 
   it('should update user info for logged-in user', async () => {
     const request = {};
-    const dto: UserUpdateDto = {
+    const dto: UserUpdateInfoDto = {
       firstName: 'Gustavo',
       lastName: 'Updated',
       email: 'updated@mail.com',
-      roleUUID: 'role-id',
     };
 
     mockAuthService.userUUID.mockResolvedValue('user-uuid');
