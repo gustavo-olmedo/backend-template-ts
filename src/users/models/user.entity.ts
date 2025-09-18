@@ -23,6 +23,9 @@ export class User {
   @Exclude()
   password: string;
 
+  @Column({ nullable: true })
+  avatarUrl?: string;
+
   @ManyToOne(() => Role)
   @JoinColumn({ name: 'roleUUID' })
   role: Role;
