@@ -18,11 +18,11 @@ import * as bcrypt from 'bcryptjs';
 import { User } from './models/user.entity';
 import { UsersService } from './users.service';
 import { AuthGuard } from '../auth/auth/auth.guard';
-import { UserCreateDto } from './dtos/user.create.dto';
-import { UserUpdateDto } from './dtos/user.update.dto';
+import { UserCreateDto } from './dtos/user-create.dto';
+import { UserUpdateDto } from './dtos/user-update.dto';
 import { AuthService } from '../auth/auth.service';
 import { HasPermission } from '../permissions/has-permission.decorator';
-import { UserUpdateInfoDto } from './dtos/user.update.info.dto';
+import { UserUpdateInfoDto } from './dtos/user-update-info.dto';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @UseGuards(AuthGuard)

@@ -4,10 +4,10 @@ import { BadRequestException } from '@nestjs/common';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { AuthService } from '../auth/auth.service';
-import { UserCreateDto } from './dtos/user.create.dto';
-import { UserUpdateDto } from './dtos/user.update.dto';
+import { UserCreateDto } from './dtos/user-create.dto';
+import { UserUpdateDto } from './dtos/user-update.dto';
 import { SharedModule } from '../shared/shared.module';
-import { UserUpdateInfoDto } from './dtos/user.update.info.dto';
+import { UserUpdateInfoDto } from './dtos/user-update-info.dto';
 
 const mockUsersService = {
   paginate: jest.fn(),
