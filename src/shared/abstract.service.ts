@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
 
 type allType<T> = {
@@ -56,5 +56,16 @@ export abstract class AbstractService<T extends ObjectLiteral> {
 
   async delete(uuid: string): Promise<unknown> {
     return this.repository.delete(uuid);
+  }
+
+  async updateAndReturn(
+    where: FindOptionsWhere<T>,
+    mutate: (entity: T) => void | Promise<void>,
+  ): Promise<T> {
+    const entity = await this.repository.findOne({ where });
+    if (!entity) throw new NotFoundException('Entity not found');
+
+    await mutate(entity);
+    return this.repository.save(entity);
   }
 }
