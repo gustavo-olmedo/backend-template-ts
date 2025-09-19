@@ -25,6 +25,8 @@ export class User {
 
   @Column({ nullable: true })
   avatarUrl?: string;
+  @Column({ nullable: true })
+  avatarPublicId?: string;
 
   @ManyToOne(() => Role)
   @JoinColumn({ name: 'roleUUID' })

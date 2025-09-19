@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './models/user.entity';
@@ -22,5 +22,13 @@ export class UsersService extends AbstractService<User> {
       }),
       meta,
     };
+  }
+
+  async updateAvatar(uuid: string, params: { url: string; publicId: string }) {
+    const user = await this.repository.findOne({ where: { uuid } });
+    if (!user) throw new NotFoundException('User not found');
+    user.avatarUrl = params.url;
+    user.avatarPublicId = params.publicId;
+    return this.repository.save(user);
   }
 }
