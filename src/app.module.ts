@@ -1,16 +1,25 @@
+import { join } from 'path';
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ServeStaticModule } from '@nestjs/serve-static';
+
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { SharedModule } from './shared/shared.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
-import { APP_GUARD } from '@nestjs/core';
+import { FileStorageModule } from './filte-storage/filte-storage.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
-import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ServeStaticModule.forRoot({
+      rootPath: join(process.cwd(), 'uploads'),
+      serveRoot: '/uploads',
+    }),
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: process.env.NODE_ENV === 'test' ? '.env.test' : '.env',
@@ -26,11 +35,18 @@ import { ConfigModule } from '@nestjs/config';
       autoLoadEntities: process.env.NODE_ENV !== 'production',
       logging: true,
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60, // 60s window
+        limit: 10, // default 10 requests per route per IP
+      },
+    ]),
     UsersModule,
     AuthModule,
     SharedModule,
     RolesModule,
     PermissionsModule,
+    FileStorageModule,
   ],
   providers: [
     {
