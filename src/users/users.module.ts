@@ -5,14 +5,14 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { SharedModule } from '../shared/shared.module';
 import { AuthModule } from '../auth/auth.module';
-import { CloudinaryModule } from 'src/cloudinary/cloudinary.module';
+import { FileStorageModule } from '../filte-storage/filte-storage.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     SharedModule,
     AuthModule,
-    CloudinaryModule,
+    FileStorageModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],
