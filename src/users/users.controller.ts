@@ -62,6 +62,7 @@ export class UsersController {
   constructor(
     private usersService: UsersService,
     private authService: AuthService,
+    @Inject(FILE_STORAGE) private readonly fileStorage: FileStorage,
   ) {}
 
   @HasPermission('users')
@@ -151,7 +152,6 @@ export class UsersController {
       }),
     )
     file: Express.Multer.File,
-    @Inject(FILE_STORAGE) storage: FileStorage,
   ) {
     if (!file) throw new BadRequestException('No file uploaded');
 
@@ -176,14 +176,15 @@ export class UsersController {
         .toFormat('webp', { quality: 90 })
         .toBuffer();
       file = { ...file, buffer: normalized } as Express.Multer.File;
-    } catch {
+    } catch (e) {
+      console.error('sharp failed', e);
       throw new BadRequestException('Invalid image content.');
     }
 
     const uuid = await this.authService.userUUID(request);
 
     // Upload via configured storage (local for dev or cloudinary for prod)
-    const uploaded = await storage.uploadBuffer(file, {
+    const uploaded = await this.fileStorage.uploadBuffer(file, {
       folder: process.env.CLOUDINARY_FOLDER ?? 'avatars', // ignored by local
       overwrite: true,
       invalidate: true,
@@ -200,7 +201,7 @@ export class UsersController {
 
     if (oldPublicId) {
       // Best-effort cleanup
-      await storage.deleteByPublicId(oldPublicId).catch(() => {});
+      await this.fileStorage.deleteByPublicId(oldPublicId).catch(() => {});
     }
 
     return this.usersService.findOne({ uuid }, ['role']);
