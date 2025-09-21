@@ -1,28 +1,45 @@
 services:
   nest-backend:
     build: .
-    ports:
-      - 8000:3000
     container_name: nest-backend
+    working_dir: /app
+    command: >
+      sh -lc "yarn install --frozen-lockfile --check-files &&
+              yarn start:dev"
+    ports:
+      - '8000:3000'
+    environment:
+      - NODE_ENV=development
+      # These help file-watching on Windows/macOS bind mounts.
+      - CHOKIDAR_USEPOLLING=true
+      - CHOKIDAR_INTERVAL=800
+      # Uncomment only if you ever need to force a target (usually not needed):
+      # - npm_config_platform=linux
+      # - npm_config_arch=arm64
     volumes:
-      - .:/app
+      - .:/app # your source code
+      - node_modules:/app/node_modules # keep deps INSIDE container (fixes sharp)
     depends_on:
       - db
+
   db:
-    image: postgres:16.8
+    image: postgres:16
+    container_name: nest-db
     restart: always
     environment:
+      - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-    container_name: nest-db
-    volumes:
-      - ./pgdata:/var/lib/postgresql/data
-      - ./init_testdb.sql:/docker-entrypoint-initdb.d/init.sql
+      - POSTGRES_DB=app
     ports:
       - '5432:5432'
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+      - ./init_testdb.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
   pgadmin:
     image: dpage/pgadmin4
-    restart: always
     container_name: nest-pgadmin4
+    restart: always
     environment:
       - PGADMIN_DEFAULT_EMAIL=admin@admin.com
       - PGADMIN_DEFAULT_PASSWORD=pgadmin4
@@ -30,3 +47,7 @@ services:
       - '5050:80'
     depends_on:
       - db
+
+volumes:
+  node_modules:
+  pgdata:
