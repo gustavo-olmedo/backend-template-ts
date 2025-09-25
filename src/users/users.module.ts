@@ -5,7 +5,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { SharedModule } from '../shared/shared.module';
 import { AuthModule } from '../auth/auth.module';
-import { FileStorageModule } from '../filte-storage/filte-storage.module';
+import { FileStorageModule } from '../file-storage/file-storage.module';
 
 @Module({
   imports: [

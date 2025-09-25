@@ -11,7 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { SharedModule } from './shared/shared.module';
 import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
-import { FileStorageModule } from './filte-storage/filte-storage.module';
+import { FileStorageModule } from './file-storage/file-storage.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 
 @Module({

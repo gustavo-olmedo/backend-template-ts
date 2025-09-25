@@ -4,9 +4,16 @@ import { UsersModule } from '../users/users.module';
 import { SharedModule } from '../shared/shared.module';
 import { AuthService } from './auth.service';
 import { RolesModule } from '../roles/roles.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PasswordToken } from './models/password-token.entity';
 
 @Module({
-  imports: [forwardRef(() => UsersModule), SharedModule, RolesModule],
+  imports: [
+    forwardRef(() => UsersModule),
+    TypeOrmModule.forFeature([PasswordToken]),
+    SharedModule,
+    RolesModule,
+  ],
   controllers: [AuthController],
   providers: [AuthService],
   exports: [AuthService],

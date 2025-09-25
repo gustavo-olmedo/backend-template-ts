@@ -33,8 +33,8 @@ import { UserUpdateInfoDto } from './dtos/user-update-info.dto';
 import { Throttle } from '@nestjs/throttler';
 import sharp from 'sharp';
 import { fileTypeFromBuffer } from 'file-type';
-import { FileStorage } from 'src/filte-storage/interfaces/file-storage.interface';
-import { FILE_STORAGE } from 'src/filte-storage/filte-storage.module';
+import { FileStorage } from 'src/file-storage/interfaces/file-storage.interface';
+import { FILE_STORAGE } from 'src/file-storage/file-storage.module';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 
 // Multer memory + basic filter (validators still run afterwards)
