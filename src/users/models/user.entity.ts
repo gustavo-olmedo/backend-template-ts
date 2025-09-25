@@ -19,7 +19,7 @@ export class User {
   lastName: string;
   @Column({ unique: true })
   email: string;
-  @Column()
+  @Column({ nullable: true })
   @Exclude()
   password: string;
 
