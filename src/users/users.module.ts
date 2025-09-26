@@ -6,6 +6,7 @@ import { UsersService } from './users.service';
 import { SharedModule } from '../shared/shared.module';
 import { AuthModule } from '../auth/auth.module';
 import { FileStorageModule } from '../file-storage/file-storage.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { FileStorageModule } from '../file-storage/file-storage.module';
     SharedModule,
     AuthModule,
     FileStorageModule,
+    MailModule,
   ],
   controllers: [UsersController],
   providers: [UsersService],
