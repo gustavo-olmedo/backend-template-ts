@@ -1,0 +1,4 @@
+<mj-text align="center" color="#6B7280">
+  © {{year}} Your Company •
+  <a href="{{fallback unsubscribeUrl '#' }}">Unsubscribe</a>
+</mj-text>
