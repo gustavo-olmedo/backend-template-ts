@@ -36,6 +36,8 @@ import { fileTypeFromBuffer } from 'file-type';
 import { FileStorage } from 'src/file-storage/interfaces/file-storage.interface';
 import { FILE_STORAGE } from 'src/file-storage/file-storage.module';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
+import { PasswordTokenService } from 'src/auth/password-token.service';
+import { MailService } from 'src/mail/mail.service';
 
 // Multer memory + basic filter (validators still run afterwards)
 const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -63,6 +65,8 @@ export class UsersController {
     private usersService: UsersService,
     private authService: AuthService,
     @Inject(FILE_STORAGE) private readonly fileStorage: FileStorage,
+    private passwordTokenService: PasswordTokenService,
+    private mailService: MailService,
   ) {}
 
   @HasPermission('users')
@@ -77,14 +81,18 @@ export class UsersController {
   @HasPermission('users')
   @Post()
   async create(@Body() body: UserCreateDto): Promise<User> {
-    const password = await bcrypt.hash('1234', 12);
-    return this.usersService.save({
+    const user = await this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
-      password,
       role: { uuid: body.roleUUID },
     });
+
+    const token = await this.passwordTokenService.issue(user, 'invite');
+    const link = `${process.env.PUBLIC_BASE_URL}/set-password?token=${encodeURIComponent(token)}`;
+    await this.mailService.sendInvite(user.email, link);
+
+    return user;
   }
 
   @HasPermission('users')
