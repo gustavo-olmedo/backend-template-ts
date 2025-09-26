@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { RolesModule } from '../roles/roles.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PasswordToken } from './models/password-token.entity';
+import { PasswordTokenService } from './password-token.service';
 
 @Module({
   imports: [
@@ -15,7 +16,7 @@ import { PasswordToken } from './models/password-token.entity';
     RolesModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService],
+  providers: [AuthService, PasswordTokenService],
+  exports: [AuthService, PasswordTokenService],
 })
 export class AuthModule {}
