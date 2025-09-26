@@ -48,7 +48,12 @@ import { MailModule } from './mail/mail.module';
     RolesModule,
     PermissionsModule,
     FileStorageModule,
-    MailModule,
+    MailModule.forRoot({
+      transport: process.env.MAIL_TRANSPORT!,
+      from:
+        process.env.MAIL_FROM || 'Your App <gustavo.olmedo.formosa@gmail.com>',
+      cache: process.env.NODE_ENV === 'production',
+    }),
   ],
   providers: [
     {
