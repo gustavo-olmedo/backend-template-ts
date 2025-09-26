@@ -1,0 +1,17 @@
+{{!-- Compose with the base layout by injecting content into {{{body}}} --}}
+<mjml>
+  <mj-body>
+    <mj-section>
+      <mj-column>
+        <mj-raw>
+          {{!-- use the base layout by rendering content into {{{body}}} --}}
+        </mj-raw>
+        <mj-text font-size="18px"><strong>Welcome!</strong></mj-text>
+        <mj-text>Click the button below to set your password.</mj-text>
+        {{> button link=link label="Set password" }}
+        <mj-text>If the button doesn't work, copy and paste this URL:</mj-text>
+        <mj-text color="#374151"><code>{{link}}</code></mj-text>
+      </mj-column>
+    </mj-section>
+  </mj-body>
+</mjml>
