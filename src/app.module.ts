@@ -13,6 +13,7 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { FileStorageModule } from './file-storage/file-storage.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { PermissionsGuard } from './permissions/permissions.guard';
     RolesModule,
     PermissionsModule,
     FileStorageModule,
+    MailModule,
   ],
   providers: [
     {
