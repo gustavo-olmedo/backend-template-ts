@@ -80,7 +80,6 @@ export class AuthController {
     return this.usersService.findOne({ uuid }, ['role']);
   }
 
-  @UseGuards(AuthGuard)
   @Post('logout')
   async logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('jwt');
