@@ -89,7 +89,7 @@ export class UsersController {
     });
 
     const token = await this.passwordTokenService.issue(user, 'invite');
-    const link = `${process.env.PUBLIC_BASE_URL}/set-password?token=${encodeURIComponent(token)}`;
+    const link = `${process.env.PUBLIC_FE_APP_URL}/set-password?token=${encodeURIComponent(token)}`;
     await this.mailService.sendInvite(user.email, link);
 
     return user;
