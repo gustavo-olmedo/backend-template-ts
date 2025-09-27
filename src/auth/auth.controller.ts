@@ -20,6 +20,8 @@ import { RegisterDto } from './dtos/register.dto';
 import { AuthGuard } from './auth/auth.guard';
 import { AuthService } from './auth.service';
 import { RolesService } from '../roles/roles.service';
+import { PasswordTokenService } from './password-token.service';
+import { PasswordToken } from './models/password-token.entity';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller()
@@ -29,6 +31,7 @@ export class AuthController {
     private jwtService: JwtService,
     private authService: AuthService,
     private rolesService: RolesService,
+    private passwordTokenService: PasswordTokenService,
   ) {}
 
   @Post('register')
@@ -86,5 +89,36 @@ export class AuthController {
     return {
       message: 'Success',
     };
+  }
+
+  @Post('set-password')
+  async setPassword(
+    @Body('token') token: string,
+    @Body('password') password: string,
+    @Body('passwordConfirm') passwordConfirm: string,
+    @Body('type') type: 'invite' | 'reset',
+  ) {
+    if (!token) throw new BadRequestException('Missing token');
+    if (!type) throw new BadRequestException('Missing operation type');
+    if (!password || password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
+
+    if (password !== passwordConfirm) {
+      throw new BadRequestException('Passwords do not match.');
+    }
+
+    const rec = await this.passwordTokenService.verify(token, 'invite');
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    await this.usersService.update(rec.user.uuid, { password: hashedPassword });
+
+    // Invalidate all outstanding invite tokens for this user
+    await this.passwordTokenService.revokeAllForUser(rec.user.uuid, 'invite');
+
+    // Finally consume the presented token (harmless if already covered by revokeAll)
+    await this.passwordTokenService.consume(token, 'invite');
+
+    return { ok: true, message: 'Password updated' };
   }
 }
