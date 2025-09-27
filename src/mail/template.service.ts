@@ -2,9 +2,16 @@ import { Inject, Injectable } from '@nestjs/common';
 import * as Handlebars from 'handlebars';
 import { join, resolve } from 'path';
 import { globSync } from 'glob';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import mjml2html from 'mjml';
 import { MAIL_OPTS, MailModuleOptions } from './mail.token';
+
+function resolveTemplateDir(explicit?: string) {
+  if (explicit) return explicit;
+  const distPath = resolve(process.cwd(), 'dist', 'mail', 'templates');
+  if (existsSync(distPath)) return distPath;
+  return resolve(process.cwd(), 'src', 'mail', 'templates');
+}
 
 @Injectable()
 export class TemplateService {
@@ -13,7 +20,7 @@ export class TemplateService {
   private useCache: boolean;
 
   constructor(@Inject(MAIL_OPTS) opts: MailModuleOptions) {
-    this.templateDir = opts.templateDir ?? resolve(__dirname, 'templates');
+    this.templateDir = resolveTemplateDir(opts.templateDir);
     this.useCache = opts.cache ?? process.env.NODE_ENV === 'production';
 
     // Register partials (all files under templates/partials)

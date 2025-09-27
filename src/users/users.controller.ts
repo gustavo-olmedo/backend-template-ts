@@ -80,7 +80,7 @@ export class UsersController {
 
   @HasPermission('users')
   @Post()
-  async create(@Body() body: UserCreateDto): Promise<User> {
+  async create(@Body() body: UserCreateDto) {
     const user = await this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
