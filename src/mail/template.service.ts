@@ -1,11 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as Handlebars from 'handlebars';
 import { join, resolve } from 'path';
-import glob from 'glob';
+import { globSync } from 'glob';
 import { readFileSync } from 'fs';
 import mjml2html from 'mjml';
-
-import { MAIL_OPTS, MailModuleOptions } from './mail.module';
+import { MAIL_OPTS, MailModuleOptions } from './mail.token';
 
 @Injectable()
 export class TemplateService {
@@ -19,7 +18,7 @@ export class TemplateService {
 
     // Register partials (all files under templates/partials)
     const partialsDirs = join(this.templateDir, 'partials');
-    const partialFiles = glob.sync(`${partialsDirs}/**/*.mjml`);
+    const partialFiles = globSync(`${partialsDirs}/**/*.mjml`);
     partialFiles.forEach((file) => {
       const name = file.replace(partialsDirs + '/', '').replace('.mjml', '');
       const content = readFileSync(file, 'utf8');

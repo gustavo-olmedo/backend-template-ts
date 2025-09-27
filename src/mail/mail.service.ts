@@ -1,7 +1,7 @@
 import * as nodemailer from 'nodemailer';
-import { MAIL_OPTS, MailModuleOptions } from './mail.module';
 import { TemplateService } from './template.service';
 import { Inject } from '@nestjs/common';
+import { MAIL_OPTS, MailModuleOptions } from './mail.token';
 
 export type SendArgs = {
   to: string | string[];
