@@ -111,16 +111,16 @@ export class AuthController {
       throw new BadRequestException('Passwords do not match.');
     }
 
-    const rec = await this.passwordTokenService.verify(token, 'invite');
+    const rec = await this.passwordTokenService.verify(token, type);
 
     const hashedPassword = await bcrypt.hash(password, 12);
     await this.usersService.update(rec.user.uuid, { password: hashedPassword });
 
-    // Invalidate all outstanding invite tokens for this user
-    await this.passwordTokenService.revokeAllForUser(rec.user.uuid, 'invite');
+    // Invalidate all outstanding invite/reset tokens for this user
+    await this.passwordTokenService.revokeAllForUser(rec.user.uuid, type);
 
     // Finally consume the presented token (harmless if already covered by revokeAll)
-    await this.passwordTokenService.consume(token, 'invite');
+    await this.passwordTokenService.consume(token, type);
 
     return { ok: true, message: 'Password updated' };
   }
