@@ -22,6 +22,8 @@ import { AuthService } from './auth.service';
 import { RolesService } from '../roles/roles.service';
 import { PasswordTokenService } from './password-token.service';
 import { PasswordToken } from './models/password-token.entity';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
+import { MailService } from 'src/mail/mail.service';
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller()
@@ -32,6 +34,7 @@ export class AuthController {
     private authService: AuthService,
     private rolesService: RolesService,
     private passwordTokenService: PasswordTokenService,
+    private mailService: MailService,
   ) {}
 
   @Post('register')
@@ -120,5 +123,28 @@ export class AuthController {
     await this.passwordTokenService.consume(token, 'invite');
 
     return { ok: true, message: 'Password updated' };
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    const { email } = body;
+
+    // Do not leak whether the user exists
+    const user = await this.usersService.findOne({ email });
+    if (!user) {
+      return {
+        ok: true,
+        message: 'If that email exists, we sent a reset link.',
+      };
+    }
+
+    // Use a dedicated token type for resets
+    const token = await this.passwordTokenService.issue(user, 'reset');
+    const link = `${process.env.PUBLIC_FE_APP_URL}/set-password?token=${encodeURIComponent(
+      token,
+    )}&type=reset`;
+
+    await this.mailService.sendReset(user.email, link);
+    return { ok: true, message: 'If that email exists, we sent a reset link.' };
   }
 }
