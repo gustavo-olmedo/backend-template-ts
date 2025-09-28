@@ -59,7 +59,7 @@ export class MailService {
     return this.send({
       to,
       subject: 'Reset your password',
-      template: 'reset',
+      template: 'reset-password',
       vars: { link },
     });
   }
