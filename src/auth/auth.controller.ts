@@ -14,6 +14,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { Response, Request } from 'express';
+import { OAuth2Client } from 'google-auth-library';
 
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dtos/register.dto';
@@ -24,6 +25,9 @@ import { PasswordTokenService } from './password-token.service';
 import { PasswordToken } from './models/password-token.entity';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { MailService } from 'src/mail/mail.service';
+
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 @UseInterceptors(ClassSerializerInterceptor)
 @Controller()
@@ -146,5 +150,67 @@ export class AuthController {
 
     await this.mailService.sendReset(user.email, link);
     return { ok: true, message: 'If that email exists, we sent a reset link.' };
+  }
+
+  @Post('sso/google')
+  async ssoGoogle(
+    @Body('idToken') idToken: string,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    if (!idToken) throw new BadRequestException('Missing idToken');
+
+    // Verify id_token with Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    if (!payload) throw new BadRequestException('Invalid Google token');
+
+    // Required Google claims we'll use
+    const {
+      sub: googleSub,
+      email,
+      email_verified,
+      given_name,
+      family_name,
+      picture,
+    } = payload;
+
+    if (!email || !email_verified) {
+      throw new BadRequestException('Unverified Google account');
+    }
+
+    // Upsert/find the user in your DB
+    let user = await this.usersService.findOne({ email });
+
+    if (!user) {
+      // First time: create a “regular” user
+      const regularRole = await this.rolesService.findOne({ name: 'regular' });
+
+      user = await this.usersService.save({
+        firstName: given_name ?? 'Google',
+        lastName: family_name ?? 'User',
+        email,
+        // No password for SSO users
+        password: null,
+        avatarUrl: picture ?? null,
+        role: regularRole ? { uuid: regularRole.uuid } : undefined,
+      });
+    }
+
+    // TODO: Persist the identity mapping in your DB
+    // In the auth_identities table, upsert (provider='google', provider_uid=googleSub, user_id=user.uuid) here.
+
+    const jwt = await this.jwtService.signAsync({ uuid: user.uuid });
+
+    response.cookie('jwt', jwt, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+    });
+
+    return { user, accessToken: jwt };
   }
 }
