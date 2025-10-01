@@ -16,19 +16,16 @@ export class UsersService extends AbstractService<User> {
     const { data, meta } = await super.paginate(page, relations);
 
     return {
-      data: data.map((user: User) => {
-        const { password, ...userWithoutPass } = user;
-        return userWithoutPass;
-      }),
+      data,
       meta,
     };
   }
 
   async updateAvatar(uuid: string, params: { url: string; publicId: string }) {
-    const user = await this.repository.findOne({ where: { uuid } });
+    const user = await this.usersRepository.findOne({ where: { uuid } });
     if (!user) throw new NotFoundException('User not found');
     user.avatarUrl = params.url;
     user.avatarPublicId = params.publicId;
-    return this.repository.save(user);
+    return this.usersRepository.save(user);
   }
 }
