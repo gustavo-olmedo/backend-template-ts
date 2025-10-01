@@ -18,6 +18,7 @@ import {
   FileTypeValidator,
   MaxFileSizeValidator,
   Inject,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -38,6 +39,7 @@ import { FILE_STORAGE } from 'src/file-storage/file-storage.module';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { PasswordTokenService } from 'src/auth/password-token.service';
 import { MailService } from 'src/mail/mail.service';
+import { AuthIdentitiesService } from 'src/auth/auth-identities.service';
 
 // Multer memory + basic filter (validators still run afterwards)
 const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -67,6 +69,7 @@ export class UsersController {
     @Inject(FILE_STORAGE) private readonly fileStorage: FileStorage,
     private passwordTokenService: PasswordTokenService,
     private mailService: MailService,
+    private authIdentitiesService: AuthIdentitiesService,
   ) {}
 
   @HasPermission('users')
@@ -121,10 +124,14 @@ export class UsersController {
     if (password !== passwordConfirm) {
       throw new BadRequestException('Password do not match!');
     }
+
     const uuid = await this.authService.userUUID(request);
+    const user = await this.usersService.findOne({ uuid });
+    if (!user) throw new NotFoundException('User not found');
+
     const hashedPassword = await bcrypt.hash(password, 12);
-    await this.usersService.update(uuid, { password: hashedPassword });
-    return this.usersService.findOne({ uuid });
+    await this.authIdentitiesService.upsertPassword(user, hashedPassword);
+    return user;
   }
 
   @HasPermission('users')
@@ -212,6 +219,6 @@ export class UsersController {
       await this.fileStorage.deleteByPublicId(oldPublicId).catch(() => {});
     }
 
-    return this.usersService.findOne({ uuid }, ['role']);
+    return this.usersService.findOne({ uuid });
   }
 }
