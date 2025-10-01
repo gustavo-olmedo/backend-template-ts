@@ -4,31 +4,29 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-
 import { Role } from '../../roles/models/role.entity';
+import { AuthIdentity } from '../../auth/models/auth-identity.entity';
 
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   uuid: string;
-  @Column()
-  firstName: string;
-  @Column()
-  lastName: string;
-  @Column({ unique: true })
-  email: string;
-  @Column({ nullable: true })
-  @Exclude()
-  password: string;
 
-  @Column({ nullable: true })
-  avatarUrl?: string;
-  @Column({ nullable: true })
-  avatarPublicId?: string;
+  @Column() firstName: string;
+  @Column() lastName: string;
+
+  @Column({ unique: true }) email: string;
+
+  @Column({ nullable: true }) avatarUrl?: string;
+  @Column({ nullable: true }) avatarPublicId?: string;
 
   @ManyToOne(() => Role)
   @JoinColumn({ name: 'roleUUID' })
   role: Role;
+
+  @OneToMany(() => AuthIdentity, (ai) => ai.user)
+  identities: AuthIdentity[];
 }
