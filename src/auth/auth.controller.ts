@@ -1,3 +1,4 @@
+// src/auth/auth.controller.ts (fragmentos clave)
 import {
   BadRequestException,
   Body,
@@ -11,20 +12,20 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
 import { Response, Request } from 'express';
+import * as bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
 
 import { UsersService } from '../users/users.service';
-import { RegisterDto } from './dtos/register.dto';
-import { AuthGuard } from './auth/auth.guard';
-import { AuthService } from './auth.service';
 import { RolesService } from '../roles/roles.service';
-import { PasswordTokenService } from './password-token.service';
-import { PasswordToken } from './models/password-token.entity';
+import { AuthService } from './auth.service';
+import { SessionsService } from './sessions.service';
+import { AuthIdentitiesService } from './auth-identities.service';
+import { RegisterDto } from './dtos/register.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
-import { MailService } from 'src/mail/mail.service';
+import { PasswordTokenService } from './password-token.service';
+import { AuthGuard } from './auth/auth.guard';
+import { JwtService } from '@nestjs/jwt';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -33,12 +34,13 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 @Controller()
 export class AuthController {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
+    private users: UsersService,
+    private roles: RolesService,
     private authService: AuthService,
-    private rolesService: RolesService,
-    private passwordTokenService: PasswordTokenService,
-    private mailService: MailService,
+    private sessionsService: SessionsService,
+    private authIdentitiesService: AuthIdentitiesService,
+    private passwordTokens: PasswordTokenService,
+    private jwtService: JwtService,
   ) {}
 
   @Post('register')
@@ -46,56 +48,111 @@ export class AuthController {
     if (body.password !== body.passwordConfirm) {
       throw new BadRequestException('Password do not match!');
     }
-    const regularRole = await this.rolesService.findOne({ name: 'regular' });
-    const hashedPassword = await bcrypt.hash(body.password, 12);
-    return this.usersService.save({
+    const regularRole = await this.roles.findOne({ name: 'regular' });
+    const user = await this.users.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
-      password: hashedPassword,
-      role: { uuid: regularRole?.uuid }, // regular role uuid
+      password: null, // DEPRECADO
+      role: { uuid: regularRole?.uuid },
     });
+    // Password a identity
+    await this.authIdentitiesService.upsertPassword(user, body.password);
+    return user;
   }
 
   @Post('login')
   async login(
     @Body('email') email: string,
     @Body('password') password: string,
-    @Res({ passthrough: true }) response: Response,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.usersService.findOne({
-      email,
+    const user = await this.users.findOne({ email });
+    if (!user) throw new NotFoundException('User not found');
+
+    const ok = await this.authIdentitiesService.comparePassword(user, password);
+    if (!ok) throw new BadRequestException('Invalid credentials');
+
+    // Crea sesión + refresh token firmado
+    // Nota: el token firmado (string) se guarda en cookie; el hash va a DB
+    const refreshJwt = await this.authService.signRefreshToken(user, 'tmp'); // 'tmp' hasta tener sessionId
+    // Creamos la sesión con el valor del refreshJwt
+    const session = await this.sessionsService.create(user, refreshJwt, 30, {
+      ip: req.ip,
+      ua: req.headers['user-agent'],
     });
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
 
-    if (!(await bcrypt.compare(password, user.password))) {
-      throw new BadRequestException('Invalid credentials');
-    }
+    // Refirmamos con sid correcto
+    const refresh = await this.authService.signRefreshToken(user, session.id);
+    const access = await this.authService.signAccessToken(user, session.id);
 
-    const jwt = await this.jwtService.signAsync({
-      uuid: user.uuid,
+    // Importante: rehasear y guardar el nuevo refresh (opcional simplificar: crea sesión después)
+    await this.sessionsService.revokeById(session.id); // revoca tmp
+    const session2 = await this.sessionsService.create(user, refresh, 30, {
+      ip: req.ip,
+      ua: req.headers['user-agent'],
     });
 
-    response.cookie('jwt', jwt, { httpOnly: true });
+    const access2 = await this.authService.signAccessToken(user, session2.id);
+    const refresh2 = await this.authService.signRefreshToken(user, session2.id);
 
-    return { user, accessToken: jwt };
+    this.authService.setAuthCookies(res, access2, refresh2);
+    return { user, accessToken: access2 };
   }
 
-  @UseGuards(AuthGuard)
-  @Get('user')
-  async user(@Req() request: Request) {
-    const uuid = await this.authService.userUUID(request);
-    return this.usersService.findOne({ uuid }, ['role']);
+  @Post('refresh')
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const refresh = req.cookies['refresh_token'];
+    if (!refresh) throw new BadRequestException('Missing refresh token');
+
+    // Verifica firma y extrae claims
+    const payload = await (async () => {
+      try {
+        return await this.jwtService.verifyAsync(refresh);
+      } catch {
+        throw new BadRequestException('Invalid refresh');
+      }
+    })();
+
+    if (payload.typ !== 'refresh')
+      throw new BadRequestException('Invalid token type');
+    const { sub: userUUID, sid: sessionId } = payload;
+
+    // Valida contra DB (no revocado, match hash, no expirado)
+    const valid = await this.sessionsService.isValid(sessionId, refresh);
+    if (!valid) throw new BadRequestException('Session invalid');
+
+    // Emite nuevos tokens (rotación opcional manteniendo la misma sesión)
+    const user = await this.users.findOne({ uuid: userUUID });
+
+    if (!user) throw new BadRequestException('User not found.');
+
+    const newAccess = await this.authService.signAccessToken(user, sessionId);
+    const newRefresh = await this.authService.signRefreshToken(user, sessionId);
+
+    // Actualiza hash guardado para prevenir reuso (opcional: crear endpoint en SessionsService)
+    await this.sessionsService.create(user, newRefresh, 30); // crea nueva y revoca la anterior
+    await this.sessionsService.revokeById(sessionId);
+
+    this.authService.setAuthCookies(res, newAccess, newRefresh);
+    return { ok: true };
   }
 
   @Post('logout')
-  async logout(@Res({ passthrough: true }) response: Response) {
-    response.clearCookie('jwt');
-    return {
-      message: 'Success',
-    };
+  async logout(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const refresh = req.cookies['refresh_token'];
+    if (refresh) {
+      try {
+        const payload = await this.jwtService.verifyAsync(refresh);
+        if (payload?.sid) await this.sessionsService.revokeById(payload.sid);
+      } catch {}
+    }
+    this.authService.clearAuthCookies(res);
+    return { message: 'Success' };
   }
 
   @Post('set-password')
@@ -107,59 +164,27 @@ export class AuthController {
   ) {
     if (!token) throw new BadRequestException('Missing token');
     if (!type) throw new BadRequestException('Missing operation type');
-    if (!password || password.length < 8) {
+    if (!password || password.length < 8)
       throw new BadRequestException('Password must be at least 8 characters');
-    }
-
-    if (password !== passwordConfirm) {
+    if (password !== passwordConfirm)
       throw new BadRequestException('Passwords do not match.');
-    }
 
-    const rec = await this.passwordTokenService.verify(token, type);
-
-    const hashedPassword = await bcrypt.hash(password, 12);
-    await this.usersService.update(rec.user.uuid, { password: hashedPassword });
-
-    // Invalidate all outstanding invite/reset tokens for this user
-    await this.passwordTokenService.revokeAllForUser(rec.user.uuid, type);
-
-    // Finally consume the presented token (harmless if already covered by revokeAll)
-    await this.passwordTokenService.consume(token, type);
+    const rec = await this.passwordTokens.verify(token, type);
+    await this.authIdentitiesService.upsertPassword(rec.user, password);
+    await this.passwordTokens.revokeAllForUser(rec.user.uuid, type);
+    await this.passwordTokens.consume(token, type);
 
     return { ok: true, message: 'Password updated' };
-  }
-
-  @Post('forgot-password')
-  async forgotPassword(@Body() body: ForgotPasswordDto) {
-    const { email } = body;
-
-    // Do not leak whether the user exists
-    const user = await this.usersService.findOne({ email });
-    if (!user) {
-      return {
-        ok: true,
-        message: 'If that email exists, we sent a reset link.',
-      };
-    }
-
-    // Use a dedicated token type for resets
-    const token = await this.passwordTokenService.issue(user, 'reset');
-    const link = `${process.env.PUBLIC_FE_APP_URL}/set-password?token=${encodeURIComponent(
-      token,
-    )}&type=reset`;
-
-    await this.mailService.sendReset(user.email, link);
-    return { ok: true, message: 'If that email exists, we sent a reset link.' };
   }
 
   @Post('sso/google')
   async ssoGoogle(
     @Body('idToken') idToken: string,
-    @Res({ passthrough: true }) response: Response,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
     if (!idToken) throw new BadRequestException('Missing idToken');
 
-    // Verify id_token with Google
     const ticket = await googleClient.verifyIdToken({
       idToken,
       audience: GOOGLE_CLIENT_ID,
@@ -167,7 +192,6 @@ export class AuthController {
     const payload = ticket.getPayload();
     if (!payload) throw new BadRequestException('Invalid Google token');
 
-    // Required Google claims we'll use
     const {
       sub: googleSub,
       email,
@@ -176,41 +200,42 @@ export class AuthController {
       family_name,
       picture,
     } = payload;
-
-    if (!email || !email_verified) {
+    if (!email || !email_verified)
       throw new BadRequestException('Unverified Google account');
-    }
 
-    // Upsert/find the user in your DB
-    let user = await this.usersService.findOne({ email });
-
+    let user = await this.users.findOne({ email });
     if (!user) {
-      // First time: create a “regular” user
-      const regularRole = await this.rolesService.findOne({ name: 'regular' });
-
-      user = await this.usersService.save({
+      const regular = await this.roles.findOne({ name: 'regular' });
+      user = await this.users.save({
         firstName: given_name ?? 'Google',
         lastName: family_name ?? 'User',
         email,
-        // No password for SSO users
         password: null,
         avatarUrl: picture ?? null,
-        role: regularRole ? { uuid: regularRole.uuid } : undefined,
+        role: regular ? { uuid: regular.uuid } : undefined,
       });
     }
 
-    // TODO: Persist the identity mapping in your DB
-    // In the auth_identities table, upsert (provider='google', provider_uid=googleSub, user_id=user.uuid) here.
+    await this.authIdentitiesService.upsertSso(user, 'google', googleSub);
 
-    const jwt = await this.jwtService.signAsync({ uuid: user.uuid });
-
-    response.cookie('jwt', jwt, {
-      httpOnly: true,
-      sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
-      path: '/',
+    // Crea sesión + cookies
+    const refreshTmp = await this.authService.signRefreshToken(user, 'tmp');
+    const s = await this.sessionsService.create(user, refreshTmp, 30, {
+      ip: req.ip,
+      ua: req.headers['user-agent'],
     });
+    const access = await this.authService.signAccessToken(user, s.id);
+    const refresh = await this.authService.signRefreshToken(user, s.id);
 
-    return { user, accessToken: jwt };
+    // opcional: rotación igual que en login
+    this.authService.setAuthCookies(res, access, refresh);
+    return { user, accessToken: access };
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('user')
+  async me(@Req() req: Request) {
+    const uuid = await this.authService.userUUID(req);
+    return this.users.findOne({ uuid }, ['role']);
   }
 }
