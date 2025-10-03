@@ -1,4 +1,3 @@
-// src/auth/auth.controller.ts (fragmentos clave)
 import {
   BadRequestException,
   Body,
@@ -15,6 +14,8 @@ import {
 import { Response, Request } from 'express';
 import * as bcrypt from 'bcryptjs';
 import { OAuth2Client } from 'google-auth-library';
+import { JwtService } from '@nestjs/jwt';
+import { randomUUID } from 'crypto';
 
 import { UsersService } from '../users/users.service';
 import { RolesService } from '../roles/roles.service';
@@ -25,7 +26,7 @@ import { RegisterDto } from './dtos/register.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { PasswordTokenService } from './password-token.service';
 import { AuthGuard } from './auth/auth.guard';
-import { JwtService } from '@nestjs/jwt';
+import { MailService } from '../mail/mail.service';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -34,13 +35,15 @@ const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 @Controller()
 export class AuthController {
   constructor(
-    private users: UsersService,
+    private usersService: UsersService,
     private roles: RolesService,
     private authService: AuthService,
     private sessionsService: SessionsService,
     private authIdentitiesService: AuthIdentitiesService,
     private passwordTokens: PasswordTokenService,
     private jwtService: JwtService,
+    private passwordTokenService: PasswordTokenService,
+    private mailService: MailService,
   ) {}
 
   @Post('register')
@@ -49,11 +52,10 @@ export class AuthController {
       throw new BadRequestException('Password do not match!');
     }
     const regularRole = await this.roles.findOne({ name: 'regular' });
-    const user = await this.users.save({
+    const user = await this.usersService.save({
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
-      password: null, // DEPRECADO
       role: { uuid: regularRole?.uuid },
     });
     // Password a identity
@@ -68,37 +70,47 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.users.findOne({ email });
+    const user = await this.usersService.findOne({ email });
     if (!user) throw new NotFoundException('User not found');
-
     const ok = await this.authIdentitiesService.comparePassword(user, password);
     if (!ok) throw new BadRequestException('Invalid credentials');
 
-    // Crea sesión + refresh token firmado
-    // Nota: el token firmado (string) se guarda en cookie; el hash va a DB
-    const refreshJwt = await this.authService.signRefreshToken(user, 'tmp'); // 'tmp' hasta tener sessionId
-    // Creamos la sesión con el valor del refreshJwt
-    const session = await this.sessionsService.create(user, refreshJwt, 30, {
-      ip: req.ip,
-      ua: req.headers['user-agent'],
-    });
+    // Run the DB parts atomically
+    const { access, refresh } = await this.sessionsService.withTransaction(
+      async (sessionRepository) => {
+        // INSERT shell session (DB generates id)
+        const placeholderHash = await bcrypt.hash(
+          `placeholder:${randomUUID()}`,
+          12,
+        );
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const shell = await sessionRepository.save(
+          sessionRepository.create({
+            user,
+            refreshTokenHash: placeholderHash,
+            expiresAt: expires,
+            ip: req.ip,
+            userAgent: req.headers['user-agent'] as string | undefined,
+          }),
+        );
 
-    // Refirmamos con sid correcto
-    const refresh = await this.authService.signRefreshToken(user, session.id);
-    const access = await this.authService.signAccessToken(user, session.id);
+        // Sign tokens ONCE with the real session id
+        const access = await this.authService.signAccessToken(user, shell.id); // e.g. 15m
+        const refresh = await this.authService.signRefreshToken(user, shell.id); // e.g. 30d
 
-    // Importante: rehasear y guardar el nuevo refresh (opcional simplificar: crea sesión después)
-    await this.sessionsService.revokeById(session.id); // revoca tmp
-    const session2 = await this.sessionsService.create(user, refresh, 30, {
-      ip: req.ip,
-      ua: req.headers['user-agent'],
-    });
+        // UPDATE row with the real refresh hash
+        await sessionRepository.update(
+          { id: shell.id },
+          { refreshTokenHash: await bcrypt.hash(refresh, 12) },
+        );
 
-    const access2 = await this.authService.signAccessToken(user, session2.id);
-    const refresh2 = await this.authService.signRefreshToken(user, session2.id);
+        return { access, refresh };
+      },
+    );
 
-    this.authService.setAuthCookies(res, access2, refresh2);
-    return { user, accessToken: access2 };
+    // Only set cookies after the tx succeeds
+    this.authService.setAuthCookies(res, access, refresh);
+    return { user, accessToken: access };
   }
 
   @Post('refresh')
@@ -127,7 +139,7 @@ export class AuthController {
     if (!valid) throw new BadRequestException('Session invalid');
 
     // Emite nuevos tokens (rotación opcional manteniendo la misma sesión)
-    const user = await this.users.findOne({ uuid: userUUID });
+    const user = await this.usersService.findOne({ uuid: userUUID });
 
     if (!user) throw new BadRequestException('User not found.');
 
@@ -203,10 +215,10 @@ export class AuthController {
     if (!email || !email_verified)
       throw new BadRequestException('Unverified Google account');
 
-    let user = await this.users.findOne({ email });
+    let user = await this.usersService.findOne({ email });
     if (!user) {
       const regular = await this.roles.findOne({ name: 'regular' });
-      user = await this.users.save({
+      user = await this.usersService.save({
         firstName: given_name ?? 'Google',
         lastName: family_name ?? 'User',
         email,
@@ -236,6 +248,29 @@ export class AuthController {
   @Get('user')
   async me(@Req() req: Request) {
     const uuid = await this.authService.userUUID(req);
-    return this.users.findOne({ uuid }, ['role']);
+    return this.usersService.findOne({ uuid }, ['role']);
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() body: ForgotPasswordDto) {
+    const { email } = body;
+
+    // Do not leak whether the user exists
+    const user = await this.usersService.findOne({ email });
+    if (!user) {
+      return {
+        ok: true,
+        message: 'If that email exists, we sent a reset link.',
+      };
+    }
+
+    // Use a dedicated token type for resets
+    const token = await this.passwordTokenService.issue(user, 'reset');
+    const link = `${process.env.PUBLIC_FE_APP_URL}/set-password?token=${encodeURIComponent(
+      token,
+    )}&type=reset`;
+
+    await this.mailService.sendReset(user.email, link);
+    return { ok: true, message: 'If that email exists, we sent a reset link.' };
   }
 }
