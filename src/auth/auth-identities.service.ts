@@ -9,17 +9,17 @@ import { User } from '../users/models/user.entity';
 export class AuthIdentitiesService {
   constructor(
     @InjectRepository(AuthIdentity)
-    private repo: Repository<AuthIdentity>,
+    private authIdentitiesRepository: Repository<AuthIdentity>,
   ) {}
 
   async upsertPassword(user: User, plainPassword: string) {
     const hash = await bcrypt.hash(plainPassword, 12);
-    let identity = await this.repo.findOne({
+    let identity = await this.authIdentitiesRepository.findOne({
       where: { user: { uuid: user.uuid }, provider: 'password' },
       withDeleted: false,
     });
     if (!identity) {
-      identity = this.repo.create({
+      identity = this.authIdentitiesRepository.create({
         user,
         provider: 'password',
         providerUid: user.email,
@@ -28,11 +28,11 @@ export class AuthIdentitiesService {
     } else {
       identity.passwordHash = hash;
     }
-    return this.repo.save(identity);
+    return this.authIdentitiesRepository.save(identity);
   }
 
   async comparePassword(user: User, plain: string): Promise<boolean> {
-    const identity = await this.repo.findOne({
+    const identity = await this.authIdentitiesRepository.findOne({
       where: { user: { uuid: user.uuid }, provider: 'password' },
       select: ['id', 'passwordHash', 'provider', 'providerUid'],
     });
@@ -45,15 +45,19 @@ export class AuthIdentitiesService {
     provider: 'google' | 'apple' | 'github',
     providerUid: string,
   ) {
-    let identity = await this.repo.findOne({
+    let identity = await this.authIdentitiesRepository.findOne({
       where: { user: { uuid: user.uuid }, provider },
     });
     if (!identity) {
-      identity = this.repo.create({ user, provider, providerUid });
+      identity = this.authIdentitiesRepository.create({
+        user,
+        provider,
+        providerUid,
+      });
     } else {
       identity.providerUid = providerUid;
     }
     identity.lastLoginAt = new Date();
-    return this.repo.save(identity);
+    return this.authIdentitiesRepository.save(identity);
   }
 }
