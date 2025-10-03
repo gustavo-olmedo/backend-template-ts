@@ -1,5 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FindOptionsWhere, ObjectLiteral, Repository } from 'typeorm';
+import {
+  EntityManager,
+  EntityTarget,
+  FindOptionsWhere,
+  ObjectLiteral,
+  Repository,
+} from 'typeorm';
+import { IsolationLevel } from 'typeorm/driver/types/IsolationLevel';
 
 type allType<T> = {
   options?: FindOptionsWhere<T> | FindOptionsWhere<T>[];
@@ -67,5 +74,21 @@ export abstract class AbstractService<T extends ObjectLiteral> {
 
     await mutate(entity);
     return this.repository.save(entity);
+  }
+
+  /** Run a function inside a DB transaction and get a scoped Repository<T>. */
+  async withTransaction<R>(
+    fn: (repo: Repository<T>, em: EntityManager) => Promise<R> | R,
+    isolationLevel?: IsolationLevel,
+  ): Promise<R> {
+    const run = async (em: EntityManager) => {
+      const target = this.repository.metadata.target as EntityTarget<T>;
+      const txRepo = em.getRepository<T>(target);
+      return fn(txRepo, em);
+    };
+
+    return isolationLevel
+      ? this.repository.manager.transaction(isolationLevel, run)
+      : this.repository.manager.transaction(run);
   }
 }
