@@ -222,7 +222,6 @@ export class AuthController {
         firstName: given_name ?? 'Google',
         lastName: family_name ?? 'User',
         email,
-        password: null,
         avatarUrl: picture ?? null,
         role: regular ? { uuid: regular.uuid } : undefined,
       });
@@ -230,16 +229,40 @@ export class AuthController {
 
     await this.authIdentitiesService.upsertSso(user, 'google', googleSub);
 
-    // Crea sesión + cookies
-    const refreshTmp = await this.authService.signRefreshToken(user, 'tmp');
-    const s = await this.sessionsService.create(user, refreshTmp, 30, {
-      ip: req.ip,
-      ua: req.headers['user-agent'],
-    });
-    const access = await this.authService.signAccessToken(user, s.id);
-    const refresh = await this.authService.signRefreshToken(user, s.id);
+    // Run the DB parts atomically
+    const { access, refresh } = await this.sessionsService.withTransaction(
+      async (sessionRepository) => {
+        // INSERT shell session (DB generates id)
+        const placeholderHash = await bcrypt.hash(
+          `placeholder:${randomUUID()}`,
+          12,
+        );
+        const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        const shell = await sessionRepository.save(
+          sessionRepository.create({
+            user,
+            refreshTokenHash: placeholderHash,
+            expiresAt: expires,
+            ip: req.ip,
+            userAgent: req.headers['user-agent'] as string | undefined,
+          }),
+        );
 
-    // opcional: rotación igual que en login
+        // Sign tokens ONCE with the real session id
+        const access = await this.authService.signAccessToken(user, shell.id); // e.g. 15m
+        const refresh = await this.authService.signRefreshToken(user, shell.id); // e.g. 30d
+
+        // UPDATE row with the real refresh hash
+        await sessionRepository.update(
+          { id: shell.id },
+          { refreshTokenHash: await bcrypt.hash(refresh, 12) },
+        );
+
+        return { access, refresh };
+      },
+    );
+
+    // Only set cookies after the tx succeeds
     this.authService.setAuthCookies(res, access, refresh);
     return { user, accessToken: access };
   }
