@@ -11,6 +11,7 @@ import { DevicesService } from './devices.service';
 import { RegisterDeviceDto } from './dtos/register-device.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { UsersService } from 'src/users/users.service';
+import { HeartbeatDto } from './dtos/heartbeat.dto';
 
 @UseGuards(AuthGuard)
 @Controller('devices')
@@ -41,5 +42,16 @@ export class DevicesController {
       },
     );
     return { id: device.id };
+  }
+
+  @Post('heartbeat') // App foreground/resume events (mobile), or periodically (e.g. every 24h) while the app is active. Web: on page load or visibility change (optional)
+  async heartbeat(@Req() req, @Body() body: HeartbeatDto) {
+    const userUUID = await this.authService.userUUID(req);
+    const user = await this.usersService.findOne({ uuid: userUUID });
+    if (!user) throw new BadRequestException('User not found.');
+
+    await this.devices.heartbeat(user, body.appInstanceId);
+
+    return { ok: true };
   }
 }
