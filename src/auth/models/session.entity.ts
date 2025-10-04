@@ -6,7 +6,9 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+
 import { User } from '../../users/models/user.entity';
+import { Device } from '../../devices/models/devices.entity';
 
 @Entity('sessions')
 @Index(['user', 'revokedAt', 'expiresAt'])
@@ -26,4 +28,11 @@ export class Session {
   @CreateDateColumn() createdAt: Date;
   @Column({ type: 'timestamptz' }) expiresAt: Date;
   @Column({ type: 'timestamptz', nullable: true }) revokedAt?: Date | null;
+
+  @ManyToOne(() => Device, {
+    nullable: true,
+    onDelete: 'SET NULL',
+    eager: true,
+  })
+  device?: Device | null;
 }
