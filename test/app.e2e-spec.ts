@@ -65,7 +65,7 @@ async function runSeed(app: INestApplication) {
       lastName: 'admin',
       email: 'admin@mail.com',
       password,
-      role: { uuid: adminRole?.uuid },
+      role: { id: adminRole?.id },
     });
   }
 }
@@ -76,13 +76,13 @@ async function cleanUpSeed(app: INestApplication) {
 
   const adminUser = await usersService.findOne({ email: 'admin@mail.com' });
   if (adminUser) {
-    await usersService.delete(adminUser.uuid);
+    await usersService.delete(adminUser.id);
   }
 
   const rolesToDelete = ['admin', 'regular'];
   for (const name of rolesToDelete) {
     let role = await rolesService.findOne({ name }, ['permissions']);
-    if (role) await rolesService.delete(role.uuid);
+    if (role) await rolesService.delete(role.id);
   }
 }
 
@@ -175,7 +175,7 @@ describe('Roles & Permissions', () => {
       })
       .expect(201);
 
-    createdRoleId = res.body.uuid;
+    createdRoleId = res.body.id;
   });
 
   it('should update a role', async () => {
@@ -202,12 +202,12 @@ describe('Roles & Permissions', () => {
 });
 
 describe('Users', () => {
-  let roleAdminUUID;
+  let roleAdminId;
 
   beforeAll(async () => {
     const rolesService = app.get(RolesService);
     const adminRole = await rolesService.findOne({ name: 'admin' });
-    roleAdminUUID = adminRole?.uuid;
+    roleAdminId = adminRole?.id;
   });
 
   it('should create a new user', async () => {
@@ -220,11 +220,11 @@ describe('Users', () => {
         email: 'testuser@mail.com',
         password: 'Password123',
         passwordConfirm: 'Password123',
-        roleUUID: roleAdminUUID,
+        roleId: roleAdminId,
       })
       .expect(201);
 
-    createdUserId = res.body.uuid;
+    createdUserId = res.body.id;
   });
 
   it('should fetch all users', async () => {
@@ -249,7 +249,7 @@ describe('Users', () => {
         firstName: 'Updated',
         lastName: 'User',
         email: 'updated@mail.com',
-        roleUUID: roleAdminUUID,
+        roleId: roleAdminId,
       })
       .expect(200);
   });
@@ -262,7 +262,7 @@ describe('Users', () => {
         firstName: 'Gustavo',
         lastName: 'Olmedo',
         email: 'admin@mail.com',
-        roleUUID: roleAdminUUID,
+        roleId: roleAdminId,
       })
       .expect(200);
   });

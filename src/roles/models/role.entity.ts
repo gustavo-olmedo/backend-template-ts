@@ -10,7 +10,7 @@ import {
 @Entity('roles')
 export class Role {
   @PrimaryGeneratedColumn('uuid')
-  uuid: string;
+  id: string;
 
   @Column()
   name: string;
@@ -24,8 +24,8 @@ export class Role {
   @ManyToMany(() => Permission, { cascade: true })
   @JoinTable({
     name: 'rolePermissions',
-    joinColumn: { name: 'roleUUID', referencedColumnName: 'uuid' },
-    inverseJoinColumn: { name: 'permissionUUID', referencedColumnName: 'uuid' },
+    joinColumn: { name: 'roleId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'permissionId', referencedColumnName: 'id' },
   })
   permissions: Permission[];
 }

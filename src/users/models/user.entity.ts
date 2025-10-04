@@ -13,7 +13,7 @@ import { AuthIdentity } from '../../auth/models/auth-identity.entity';
 @Entity('users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
-  uuid: string;
+  id: string;
 
   @Column() firstName: string;
   @Column() lastName: string;
@@ -24,7 +24,7 @@ export class User {
   @Column({ nullable: true }) avatarPublicId?: string;
 
   @ManyToOne(() => Role)
-  @JoinColumn({ name: 'roleUUID' })
+  @JoinColumn({ name: 'roleId' })
   role: Role;
 
   @OneToMany(() => AuthIdentity, (ai) => ai.user)

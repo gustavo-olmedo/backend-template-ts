@@ -88,7 +88,7 @@ export class UsersController {
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
-      role: { uuid: body.roleUUID },
+      role: { id: body.roleId },
     });
 
     const token = await this.passwordTokenService.issue(user, 'invite');
@@ -99,19 +99,19 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Get(':uuid')
-  async get(@Param('uuid') uuid): Promise<User | null> {
-    return this.usersService.findOne({ uuid }, ['role']);
+  @Get(':id')
+  async get(@Param('id') id): Promise<User | null> {
+    return this.usersService.findOne({ id }, ['role']);
   }
 
   @HasPermission('users')
   @Patch('info')
   async updateInfo(@Req() request, @Body() body: UserUpdateInfoDto) {
-    const uuid = await this.authService.userUUID(request);
-    await this.usersService.update(uuid, {
+    const id = await this.authService.userId(request);
+    await this.usersService.update(id, {
       ...body,
     });
-    return this.usersService.findOne({ uuid });
+    return this.usersService.findOne({ id });
   }
 
   @HasPermission('users')
@@ -125,8 +125,8 @@ export class UsersController {
       throw new BadRequestException('Password do not match!');
     }
 
-    const uuid = await this.authService.userUUID(request);
-    const user = await this.usersService.findOne({ uuid });
+    const id = await this.authService.userId(request);
+    const user = await this.usersService.findOne({ id });
     if (!user) throw new NotFoundException('User not found');
 
     const hashedPassword = await bcrypt.hash(
@@ -138,21 +138,21 @@ export class UsersController {
   }
 
   @HasPermission('users')
-  @Put(':uuid')
-  async update(@Param('uuid') uuid: string, @Body() body: UserUpdateDto) {
-    const { roleUUID, ...data } = body;
-    await this.usersService.update(uuid, {
+  @Put(':id')
+  async update(@Param('id') id: string, @Body() body: UserUpdateDto) {
+    const { roleId, ...data } = body;
+    await this.usersService.update(id, {
       ...data,
-      role: { uuid: roleUUID },
+      role: { id: roleId },
     });
 
-    return this.usersService.findOne({ uuid }, ['role']);
+    return this.usersService.findOne({ id }, ['role']);
   }
 
   @HasPermission('users')
-  @Delete(':uuid')
-  async delete(@Param('uuid') uuid: string) {
-    return this.usersService.delete(uuid);
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    return this.usersService.delete(id);
   }
 
   @Patch('avatar')
@@ -199,7 +199,7 @@ export class UsersController {
       throw new BadRequestException('Invalid image content.');
     }
 
-    const uuid = await this.authService.userUUID(request);
+    const id = await this.authService.userId(request);
 
     // Upload via configured storage (local for dev or cloudinary for prod)
     const uploaded = await this.fileStorage.uploadBuffer(file, {
@@ -209,10 +209,10 @@ export class UsersController {
     });
 
     // Persist & delete the previous one if present
-    const user = await this.usersService.findOne({ uuid });
+    const user = await this.usersService.findOne({ id });
     const oldPublicId = user?.avatarPublicId;
 
-    await this.usersService.updateAvatar(uuid, {
+    await this.usersService.updateAvatar(id, {
       url: uploaded.url,
       publicId: uploaded.publicId,
     });
@@ -222,6 +222,6 @@ export class UsersController {
       await this.fileStorage.deleteByPublicId(oldPublicId).catch(() => {});
     }
 
-    return this.usersService.findOne({ uuid });
+    return this.usersService.findOne({ id });
   }
 }

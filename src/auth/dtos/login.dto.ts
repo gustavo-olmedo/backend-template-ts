@@ -4,7 +4,7 @@ export class LoginDto {
   @IsEmail() email!: string;
   @IsString() password!: string;
 
-  @IsOptional() @IsString() appInstanceId?: string; // UUID from client
+  @IsOptional() @IsString() appInstanceId?: string; // Id from client
   @IsOptional() @IsIn(['ios', 'android', 'web']) platform?:
     | 'ios'
     | 'android'

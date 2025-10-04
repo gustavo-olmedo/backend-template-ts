@@ -18,7 +18,7 @@ export class AuthIdentitiesService {
       Number(process.env.BCRYPT_COST) || 12,
     );
     let identity = await this.authIdentitiesRepository.findOne({
-      where: { user: { uuid: user.uuid }, provider: 'password' },
+      where: { user: { id: user.id }, provider: 'password' },
       withDeleted: false,
     });
     if (!identity) {
@@ -36,7 +36,7 @@ export class AuthIdentitiesService {
 
   async comparePassword(user: User, plain: string): Promise<boolean> {
     const identity = await this.authIdentitiesRepository.findOne({
-      where: { user: { uuid: user.uuid }, provider: 'password' },
+      where: { user: { id: user.id }, provider: 'password' },
       select: ['id', 'passwordHash', 'provider', 'providerUid'],
     });
     if (!identity?.passwordHash) return false;
@@ -49,7 +49,7 @@ export class AuthIdentitiesService {
     providerUid: string,
   ) {
     let identity = await this.authIdentitiesRepository.findOne({
-      where: { user: { uuid: user.uuid }, provider },
+      where: { user: { id: user.id }, provider },
     });
     if (!identity) {
       identity = this.authIdentitiesRepository.create({
@@ -67,7 +67,7 @@ export class AuthIdentitiesService {
   /** Update lastLoginAt, backfill identity if missing, and optionally rehash. */
   async touchPasswordLogin(user: User, plainPassword: string) {
     let currentAuthIdentity = await this.authIdentitiesRepository.findOne({
-      where: { user: { uuid: user.uuid }, provider: 'password' },
+      where: { user: { id: user.id }, provider: 'password' },
       select: ['id', 'passwordHash', 'providerUid'], // need hash to decide rehash
     });
 
@@ -115,7 +115,7 @@ export class AuthIdentitiesService {
   /** Generic: mark last login for any provider (SSO already does this in your upsertSso). */
   async markLogin(user: User, provider: AuthProvider) {
     const id = await this.authIdentitiesRepository.findOne({
-      where: { user: { uuid: user.uuid }, provider },
+      where: { user: { id: user.id }, provider },
       select: ['id'],
     });
     if (!id) return; // for SSO, upsertSso already creates it

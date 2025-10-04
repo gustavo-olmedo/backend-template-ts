@@ -4,7 +4,7 @@ import { AbstractService } from './abstract.service';
 import { Injectable } from '@nestjs/common';
 
 class DummyEntity {
-  uuid: string;
+  id: string;
   name: string;
 }
 
@@ -44,7 +44,7 @@ describe('AbstractService', () => {
   });
 
   it('should find all entities', async () => {
-    const entities = [{ uuid: '1', name: 'Test' }];
+    const entities = [{ id: '1', name: 'Test' }];
     repo.find.mockResolvedValue(entities);
 
     const result = await service.all();
@@ -56,7 +56,7 @@ describe('AbstractService', () => {
   });
 
   it('should paginate correctly', async () => {
-    const entities = [{ uuid: '1', name: 'Paged' }];
+    const entities = [{ id: '1', name: 'Paged' }];
     repo.findAndCount.mockResolvedValue([entities, 1]);
 
     const result = await service.paginate(1);
@@ -70,7 +70,7 @@ describe('AbstractService', () => {
   });
 
   it('should save data', async () => {
-    const newData = { uuid: 'some-uuid', name: 'Save Test' };
+    const newData = { id: 'some-id', name: 'Save Test' };
     repo.save.mockResolvedValue(newData);
 
     const result = await service.save(newData);
@@ -79,13 +79,13 @@ describe('AbstractService', () => {
   });
 
   it('should find one entity', async () => {
-    const entity = { uuid: '1', name: 'FindMe' };
+    const entity = { id: '1', name: 'FindMe' };
     repo.findOne.mockResolvedValue(entity);
 
-    const result = await service.findOne({ uuid: '1' });
+    const result = await service.findOne({ id: '1' });
     expect(result).toEqual(entity);
     expect(repo.findOne).toHaveBeenCalledWith({
-      where: { uuid: '1' },
+      where: { id: '1' },
       relations: undefined,
     });
   });

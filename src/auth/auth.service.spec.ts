@@ -15,8 +15,8 @@ describe('AuthService', () => {
     authService = new AuthService(jwtService);
   });
 
-  it('should return UUID from valid jwt cookie', async () => {
-    const mockUUID = '1234-uuid';
+  it('should return Id from valid jwt cookie', async () => {
+    const mockId = '1234-id';
     const mockCookie = 'valid.jwt.token';
     const mockRequest = {
       cookies: {
@@ -24,10 +24,10 @@ describe('AuthService', () => {
       },
     } as unknown as Request;
 
-    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ uuid: mockUUID });
+    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ id: mockId });
 
-    const result = await authService.userUUID(mockRequest);
-    expect(result).toBe(mockUUID);
+    const result = await authService.userId(mockRequest);
+    expect(result).toBe(mockId);
     expect(jwtService.verifyAsync).toHaveBeenCalledWith(mockCookie);
   });
 
@@ -36,7 +36,7 @@ describe('AuthService', () => {
       cookies: {},
     } as Request;
 
-    await expect(authService.userUUID(mockRequest)).rejects.toThrow(
+    await expect(authService.userId(mockRequest)).rejects.toThrow(
       ForbiddenException,
     );
   });
@@ -52,6 +52,6 @@ describe('AuthService', () => {
       new Error('Invalid token'),
     );
 
-    await expect(authService.userUUID(mockRequest)).rejects.toThrow();
+    await expect(authService.userId(mockRequest)).rejects.toThrow();
   });
 });

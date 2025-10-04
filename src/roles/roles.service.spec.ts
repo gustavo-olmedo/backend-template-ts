@@ -36,7 +36,7 @@ describe('RolesService', () => {
   });
 
   it('should find all roles', async () => {
-    const roles = [{ uuid: '1', name: 'Admin', permissions: [] }];
+    const roles = [{ id: '1', name: 'Admin', permissions: [] }];
     repo.find.mockResolvedValue(roles);
 
     const result = await service.all();
@@ -48,23 +48,23 @@ describe('RolesService', () => {
   });
 
   it('should find one role by condition', async () => {
-    const role = { uuid: '1', name: 'User', permissions: [] };
+    const role = { id: '1', name: 'User', permissions: [] };
     repo.findOne.mockResolvedValue(role);
 
-    const result = await service.findOne({ uuid: '1' });
+    const result = await service.findOne({ id: '1' });
     expect(result).toEqual(role);
     expect(repo.findOne).toHaveBeenCalledWith({
-      where: { uuid: '1' },
+      where: { id: '1' },
       relations: undefined,
     });
   });
 
   it('should create/save a role', async () => {
     const role = { name: 'Editor' };
-    repo.save.mockResolvedValue({ ...role, uuid: '2', permissions: [] });
+    repo.save.mockResolvedValue({ ...role, id: '2', permissions: [] });
 
     const result = await service.save(role);
-    expect(result).toEqual({ ...role, uuid: '2', permissions: [] });
+    expect(result).toEqual({ ...role, id: '2', permissions: [] });
     expect(repo.save).toHaveBeenCalledWith(role);
   });
 

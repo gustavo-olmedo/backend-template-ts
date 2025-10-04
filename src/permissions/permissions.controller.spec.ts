@@ -31,8 +31,8 @@ describe('PermissionsController', () => {
 
   it('should return all permissions', async () => {
     const permissions = [
-      { uuid: '1', name: 'view_users' },
-      { uuid: '2', name: 'edit_users' },
+      { id: '1', name: 'view_users' },
+      { id: '2', name: 'edit_users' },
     ];
     permissionsService.all.mockResolvedValue(permissions);
 

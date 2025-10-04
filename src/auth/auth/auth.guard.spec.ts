@@ -25,7 +25,7 @@ describe('PermissionsGuard', () => {
 
   beforeEach(() => {
     reflector = { get: jest.fn() } as any;
-    authService = { userUUID: jest.fn() } as any;
+    authService = { userId: jest.fn() } as any;
     usersService = { findOne: jest.fn() } as any;
     rolesService = { findOne: jest.fn() } as any;
 
@@ -45,7 +45,7 @@ describe('PermissionsGuard', () => {
 
   it('should deny access if user not found', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userUUID.mockResolvedValue('uuid');
+    authService.userId.mockResolvedValue('id');
     usersService.findOne.mockResolvedValue(null);
 
     const result = await guard.canActivate(mockContext());
@@ -54,15 +54,15 @@ describe('PermissionsGuard', () => {
 
   it('should deny access if role not found', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userUUID.mockResolvedValue('uuid');
+    authService.userId.mockResolvedValue('id');
     usersService.findOne.mockResolvedValue({
-      uuid: '1',
+      id: '1',
       email: 'test@example.com',
       password: 'secret',
       firstName: 'gustavo',
       lastName: 'olmedo',
       role: {
-        uuid: 'role-id',
+        id: 'role-id',
         name: 'role-name',
         permissions: [],
       },
@@ -75,23 +75,23 @@ describe('PermissionsGuard', () => {
 
   it('should allow access for GET if role has view or edit permission', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userUUID.mockResolvedValue('uuid');
+    authService.userId.mockResolvedValue('id');
     usersService.findOne.mockResolvedValue({
-      uuid: '1',
+      id: '1',
       email: 'test@example.com',
       password: 'secret',
       firstName: 'gustavo',
       lastName: 'olmedo',
       role: {
-        uuid: 'role-id',
+        id: 'role-id',
         name: 'role-name',
         permissions: [],
       },
     });
     rolesService.findOne.mockResolvedValue({
-      uuid: 'role-id',
+      id: 'role-id',
       name: 'role-name',
-      permissions: [{ uuid: 'permission-id', name: 'view_users' }],
+      permissions: [{ id: 'permission-id', name: 'view_users' }],
     });
 
     const result = await guard.canActivate(mockContext('GET'));
@@ -100,23 +100,23 @@ describe('PermissionsGuard', () => {
 
   it('should allow access for non-GET if role has edit permission', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userUUID.mockResolvedValue('uuid');
+    authService.userId.mockResolvedValue('id');
     usersService.findOne.mockResolvedValue({
-      uuid: '1',
+      id: '1',
       email: 'test@example.com',
       password: 'secret',
       firstName: 'gustavo',
       lastName: 'olmedo',
       role: {
-        uuid: 'role-id',
+        id: 'role-id',
         name: 'role-name',
         permissions: [],
       },
     });
     rolesService.findOne.mockResolvedValue({
-      uuid: 'role-id',
+      id: 'role-id',
       name: 'role-name',
-      permissions: [{ uuid: 'permission-id', name: 'edit_users' }],
+      permissions: [{ id: 'permission-id', name: 'edit_users' }],
     });
 
     const result = await guard.canActivate(mockContext('POST'));
@@ -125,21 +125,21 @@ describe('PermissionsGuard', () => {
 
   it('should deny access if role has no matching permissions', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userUUID.mockResolvedValue('uuid');
+    authService.userId.mockResolvedValue('id');
     usersService.findOne.mockResolvedValue({
-      uuid: '1',
+      id: '1',
       email: 'test@example.com',
       password: 'secret',
       firstName: 'gustavo',
       lastName: 'olmedo',
       role: {
-        uuid: 'role-id',
+        id: 'role-id',
         name: 'role-name',
         permissions: [],
       },
     });
     rolesService.findOne.mockResolvedValue({
-      uuid: 'role-id',
+      id: 'role-id',
       name: 'role-name',
       permissions: [],
     });

@@ -28,7 +28,7 @@ describe('AuthController', () => {
           useValue: { save: jest.fn(), findOne: jest.fn() },
         },
         { provide: JwtService, useValue: { signAsync: jest.fn() } },
-        { provide: AuthService, useValue: { userUUID: jest.fn() } },
+        { provide: AuthService, useValue: { userId: jest.fn() } },
         { provide: RolesService, useValue: { findOne: jest.fn() } },
       ],
     }).compile();
@@ -49,8 +49,8 @@ describe('AuthController', () => {
       passwordConfirm: 'pass123',
     };
 
-    const role = { uuid: 'role-uuid', name: 'regular' };
-    const savedUser = { uuid: 'user-uuid', ...dto };
+    const role = { id: 'role-id', name: 'regular' };
+    const savedUser = { id: 'user-id', ...dto };
 
     (rolesService.findOne as jest.Mock).mockResolvedValue(role);
     (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
@@ -63,7 +63,7 @@ describe('AuthController', () => {
       expect.objectContaining({
         firstName: dto.firstName,
         password: 'hashed-password',
-        role: { uuid: role.uuid },
+        role: { id: role.id },
       }),
     );
   });
@@ -82,7 +82,7 @@ describe('AuthController', () => {
 
   it('should login and set cookie if credentials are valid', async () => {
     const user = {
-      uuid: 'user-uuid',
+      id: 'user-id',
       email: 'golmedo@mail.com',
       password: 'hashed',
     };
@@ -109,7 +109,7 @@ describe('AuthController', () => {
   });
 
   it('should throw BadRequest if password is incorrect', async () => {
-    const user = { uuid: 'uuid', password: 'hashed' };
+    const user = { id: 'id', password: 'hashed' };
     (usersService.findOne as jest.Mock).mockResolvedValue(user);
     (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
@@ -118,12 +118,12 @@ describe('AuthController', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should return current user data using uuid from cookie', async () => {
+  it('should return current user data using id from cookie', async () => {
     const mockRequest: any = {};
-    const uuid = 'user-uuid';
-    const user = { uuid, email: 'user@mail.com' };
+    const id = 'user-id';
+    const user = { id, email: 'user@mail.com' };
 
-    (authService.userUUID as jest.Mock).mockResolvedValue(uuid);
+    (authService.userId as jest.Mock).mockResolvedValue(id);
     (usersService.findOne as jest.Mock).mockResolvedValue(user);
 
     const result = await controller.user(mockRequest);

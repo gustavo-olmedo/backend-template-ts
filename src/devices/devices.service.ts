@@ -32,7 +32,7 @@ export class DevicesService {
     },
   ): Promise<Device> {
     let device = await this.devicesRepository.findOne({
-      where: { user: { uuid: user.uuid }, appInstanceId },
+      where: { user: { id: user.id }, appInstanceId },
     });
     const now = new Date();
     if (!device) {
@@ -56,7 +56,7 @@ export class DevicesService {
 
   async heartbeat(user: User, appInstanceId: string) {
     await this.devicesRepository.update(
-      { appInstanceId, user: { uuid: user.uuid } },
+      { appInstanceId, user: { id: user.id } },
       { lastSeenAt: new Date() },
     );
   }
@@ -67,13 +67,13 @@ export class DevicesService {
    * updates pushToken and bumps lastSeenAt
    */
   async updateToken(
-    user: Pick<User, 'uuid'>,
+    user: Pick<User, 'id'>,
     deviceId: string,
     token: string | null,
   ): Promise<void> {
     // Ensure device exists and belongs to this user
     const device = await this.devicesRepository.findOne({
-      where: { id: deviceId, user: { uuid: user.uuid } },
+      where: { id: deviceId, user: { id: user.id } },
       // Select fields you need to check; include revokedAt if your schema has it
       select: [
         'id',
@@ -105,14 +105,14 @@ export class DevicesService {
    * - Supports simple pagination.
    */
   async listForUser(
-    user: Pick<User, 'uuid'>,
+    user: Pick<User, 'id'>,
     opts: { includeRevoked?: boolean; limit?: number; offset?: number } = {},
   ): Promise<Device[]> {
     const { includeRevoked = false, limit = 50, offset = 0 } = opts;
 
     return this.devicesRepository.find({
       where: {
-        user: { uuid: user.uuid },
+        user: { id: user.id },
         ...(includeRevoked ? {} : { revokedAt: IsNull() }),
       },
       order: { lastSeenAt: 'DESC', createdAt: 'DESC' },
@@ -123,7 +123,7 @@ export class DevicesService {
 
   async revoke(user: User, id: string) {
     await this.devicesRepository.update(
-      { id, user: { uuid: user.uuid } },
+      { id, user: { id: user.id } },
       { revokedAt: new Date() },
     );
   }

@@ -21,8 +21,8 @@ export class UsersService extends AbstractService<User> {
     };
   }
 
-  async updateAvatar(uuid: string, params: { url: string; publicId: string }) {
-    const user = await this.usersRepository.findOne({ where: { uuid } });
+  async updateAvatar(id: string, params: { url: string; publicId: string }) {
+    const user = await this.usersRepository.findOne({ where: { id } });
     if (!user) throw new NotFoundException('User not found');
     user.avatarUrl = params.url;
     user.avatarPublicId = params.publicId;

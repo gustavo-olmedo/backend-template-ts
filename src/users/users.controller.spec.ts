@@ -18,7 +18,7 @@ const mockUsersService = {
 };
 
 const mockAuthService = {
-  userUUID: jest.fn(),
+  userId: jest.fn(),
 };
 
 describe('UsersController', () => {
@@ -49,10 +49,10 @@ describe('UsersController', () => {
       firstName: 'Gustavo',
       lastName: 'Olmedo',
       email: 'golmedo@mail.com',
-      roleUUID: 'role-uuid',
+      roleId: 'role-id',
     };
 
-    mockUsersService.save.mockResolvedValue({ uuid: 'user-id', ...dto });
+    mockUsersService.save.mockResolvedValue({ id: 'user-id', ...dto });
 
     const result = await controller.create(dto);
 
@@ -61,20 +61,19 @@ describe('UsersController', () => {
         firstName: dto.firstName,
         lastName: dto.lastName,
         email: dto.email,
-        role: { uuid: dto.roleUUID },
+        role: { id: dto.roleId },
       }),
     );
-    expect(result.uuid).toEqual('user-id');
+    expect(result.id).toEqual('user-id');
   });
 
-  it('should get a user by uuid', async () => {
-    mockUsersService.findOne.mockResolvedValue({ uuid: 'some-uuid' });
-    const result = await controller.get('some-uuid');
-    expect(result).toEqual({ uuid: 'some-uuid' });
-    expect(mockUsersService.findOne).toHaveBeenCalledWith(
-      { uuid: 'some-uuid' },
-      ['role'],
-    );
+  it('should get a user by id', async () => {
+    mockUsersService.findOne.mockResolvedValue({ id: 'some-id' });
+    const result = await controller.get('some-id');
+    expect(result).toEqual({ id: 'some-id' });
+    expect(mockUsersService.findOne).toHaveBeenCalledWith({ id: 'some-id' }, [
+      'role',
+    ]);
   });
 
   it('should update user info for logged-in user', async () => {
@@ -85,12 +84,12 @@ describe('UsersController', () => {
       email: 'updated@mail.com',
     };
 
-    mockAuthService.userUUID.mockResolvedValue('user-uuid');
+    mockAuthService.userId.mockResolvedValue('user-id');
     mockUsersService.update.mockResolvedValue(undefined);
-    mockUsersService.findOne.mockResolvedValue({ uuid: 'user-uuid', ...dto });
+    mockUsersService.findOne.mockResolvedValue({ id: 'user-id', ...dto });
 
     const result = await controller.updateInfo(request, dto);
-    expect(result).toEqual({ uuid: 'user-uuid', ...dto });
+    expect(result).toEqual({ id: 'user-id', ...dto });
   });
 
   it('should throw if passwords do not match', async () => {
@@ -100,40 +99,40 @@ describe('UsersController', () => {
   });
 
   it('should update password if match', async () => {
-    const uuid = 'user-uuid';
-    mockAuthService.userUUID.mockResolvedValue(uuid);
+    const id = 'user-id';
+    mockAuthService.userId.mockResolvedValue(id);
     mockUsersService.update.mockResolvedValue(undefined);
-    mockUsersService.findOne.mockResolvedValue({ uuid });
+    mockUsersService.findOne.mockResolvedValue({ id });
 
     const result = await controller.updatePassword({}, 'pass123', 'pass123');
 
     expect(mockUsersService.update).toHaveBeenCalledWith(
-      uuid,
+      id,
       expect.objectContaining({ password: expect.any(String) }),
     );
-    expect(result).toEqual({ uuid });
+    expect(result).toEqual({ id });
   });
 
-  it('should update a user by uuid', async () => {
+  it('should update a user by id', async () => {
     const dto: UserUpdateDto = {
       firstName: 'New',
       lastName: 'Name',
       email: 'new@mail.com',
-      roleUUID: 'role-123',
+      roleId: 'role-123',
     };
     mockUsersService.update.mockResolvedValue(undefined);
-    mockUsersService.findOne.mockResolvedValue({ uuid: 'some-uuid', ...dto });
+    mockUsersService.findOne.mockResolvedValue({ id: 'some-id', ...dto });
 
-    const result = await controller.update('some-uuid', dto);
+    const result = await controller.update('some-id', dto);
 
-    expect(result).toEqual({ uuid: 'some-uuid', ...dto });
+    expect(result).toEqual({ id: 'some-id', ...dto });
     expect(mockUsersService.update).toHaveBeenCalledWith(
-      'some-uuid',
+      'some-id',
       expect.any(Object),
     );
   });
 
-  it('should delete a user by uuid', async () => {
+  it('should delete a user by id', async () => {
     mockUsersService.delete.mockResolvedValue({ deleted: true });
     const result = await controller.delete('user-id');
     expect(result).toEqual({ deleted: true });

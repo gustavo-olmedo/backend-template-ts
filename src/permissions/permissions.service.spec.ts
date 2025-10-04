@@ -35,7 +35,7 @@ describe('PermissionsService', () => {
   });
 
   it('should find all permissions', async () => {
-    const permissions = [{ uuid: '1', name: 'view_users' }];
+    const permissions = [{ id: '1', name: 'view_users' }];
     repo.find.mockResolvedValue(permissions);
 
     const result = await service.all();
@@ -47,23 +47,23 @@ describe('PermissionsService', () => {
   });
 
   it('should find one permission by condition', async () => {
-    const permission = { uuid: '1', name: 'edit_users' };
+    const permission = { id: '1', name: 'edit_users' };
     repo.findOne.mockResolvedValue(permission);
 
-    const result = await service.findOne({ uuid: '1' });
+    const result = await service.findOne({ id: '1' });
     expect(result).toEqual(permission);
     expect(repo.findOne).toHaveBeenCalledWith({
-      where: { uuid: '1' },
+      where: { id: '1' },
       relations: undefined,
     });
   });
 
   it('should create/save a permission', async () => {
     const permission = { name: 'create_users' };
-    repo.save.mockResolvedValue({ ...permission, uuid: '2' });
+    repo.save.mockResolvedValue({ ...permission, id: '2' });
 
     const result = await service.save(permission);
-    expect(result).toEqual({ ...permission, uuid: '2' });
+    expect(result).toEqual({ ...permission, id: '2' });
     expect(repo.save).toHaveBeenCalledWith(permission);
   });
 

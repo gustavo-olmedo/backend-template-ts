@@ -92,7 +92,7 @@ async function bootstrap() {
     lastName: 'admin',
     email: process.env.DEFAULT_ADMIN_EMAIL,
     password,
-    role: { uuid: adminRole?.uuid }, // admin role uuid
+    role: { id: adminRole?.id }, // admin role id
   });
 
   console.log('✅ Permissions and roles created, admin user seeded.');

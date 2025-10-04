@@ -242,12 +242,12 @@ curl http://localhost:8000/api/users \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### `GET /api/users/:uuid`
+#### `GET /api/users/:id`
 
-Get a single user by UUID.
+Get a single user by Id.
 
 ```bash
-curl http://localhost:8000/api/users/<USER_UUID> \
+curl http://localhost:8000/api/users/<USER_Id> \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
@@ -265,23 +265,23 @@ curl -X POST http://localhost:8000/api/users \
     "email": "mail@mail.com",
     "password": "Password",
     "passwordConfirm": "Password",
-    "roleUUID": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
+    "roleId": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
   }'
 ```
 
-#### `PUT /api/users/:uuid`
+#### `PUT /api/users/:id`
 
-Update a user by UUID.
+Update a user by Id.
 
 ```bash
-curl -X PUT http://localhost:8000/api/users/<USER_UUID> \
+curl -X PUT http://localhost:8000/api/users/<USER_Id> \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "firstName": "gustavo",
     "lastName": "olmedo",
     "email": "golmedo@mail.com",
-    "roleUUID": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
+    "roleId": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
   }'
 ```
 
@@ -314,12 +314,12 @@ curl -X PATCH http://localhost:8000/api/users/password \
   }'
 ```
 
-#### `DELETE /api/users/:uuid`
+#### `DELETE /api/users/:id`
 
-Delete a user by UUID.
+Delete a user by Id.
 
 ```bash
-curl -X DELETE http://localhost:8000/api/users/<USER_UUID> \
+curl -X DELETE http://localhost:8000/api/users/<USER_Id> \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
@@ -349,12 +349,12 @@ curl http://localhost:8000/api/roles \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
-#### `GET /api/roles/:uuid`
+#### `GET /api/roles/:id`
 
-Get a role by UUID.
+Get a role by Id.
 
 ```bash
-curl http://localhost:8000/api/roles/<ROLE_UUID> \
+curl http://localhost:8000/api/roles/<ROLE_Id> \
   -H "Authorization: Bearer <TOKEN>"
 ```
 
@@ -368,30 +368,30 @@ curl -X POST http://localhost:8000/api/roles \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test",
-    "permissionUUIDs": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
+    "permissionIds": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
   }'
 ```
 
-#### `PUT /api/roles/:uuid`
+#### `PUT /api/roles/:id`
 
 Update a role.
 
 ```bash
-curl -X PUT http://localhost:8000/api/roles/<ROLE_UUID> \
+curl -X PUT http://localhost:8000/api/roles/<ROLE_Id> \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "test",
-    "permissionUUIDs": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
+    "permissionIds": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
   }'
 ```
 
-#### `DELETE /api/roles/:uuid`
+#### `DELETE /api/roles/:id`
 
 Delete a role.
 
 ```bash
-curl -X DELETE http://localhost:8000/api/roles/<ROLE_UUID> \
+curl -X DELETE http://localhost:8000/api/roles/<ROLE_Id> \
   -H "Authorization: Bearer <TOKEN>"
 ```
 

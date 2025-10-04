@@ -28,25 +28,25 @@ describe('UsersService', () => {
   it('should paginate and exclude passwords', async () => {
     const users: User[] = [
       {
-        uuid: '1',
+        id: '1',
         email: 'test@example.com',
         password: 'secret',
         firstName: 'gustavo',
         lastName: 'olmedo',
         role: {
-          uuid: '1',
+          id: '1',
           name: 'test',
           permissions: [],
         },
       },
       {
-        uuid: '2',
+        id: '2',
         email: 'john@example.com',
         password: '1234',
         firstName: 'adolfo',
         lastName: 'mendoza',
         role: {
-          uuid: '1',
+          id: '1',
           name: 'test',
           permissions: [],
         },

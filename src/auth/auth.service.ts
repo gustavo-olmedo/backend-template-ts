@@ -14,14 +14,14 @@ export class AuthService {
   constructor(private jwtService: JwtService) {}
   async signAccessToken(user: User, sessionId: string) {
     return this.jwtService.signAsync(
-      { sub: user.uuid, sid: sessionId, typ: 'access' } as JwtPayload,
+      { sub: user.id, sid: sessionId, typ: 'access' } as JwtPayload,
       { expiresIn: '15m' },
     );
   }
 
   async signRefreshToken(user: User, sessionId: string) {
     return this.jwtService.signAsync(
-      { sub: user.uuid, sid: sessionId, typ: 'refresh' } as JwtPayload,
+      { sub: user.id, sid: sessionId, typ: 'refresh' } as JwtPayload,
       { expiresIn: '30d' },
     );
   }
@@ -45,8 +45,8 @@ export class AuthService {
     res.clearCookie('refresh_token', { path: '/' });
   }
 
-  // Extract userUUID from access token
-  async userUUID(request: Request): Promise<string> {
+  // Extract userId from access token
+  async userId(request: Request): Promise<string> {
     const raw =
       request.cookies['access_token'] ??
       (request.headers.authorization?.startsWith('Bearer ')

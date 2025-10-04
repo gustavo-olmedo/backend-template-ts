@@ -18,7 +18,7 @@ export class PasswordTokenService {
   }
 
   async issue(
-    user: { uuid: string },
+    user: { id: string },
     type: 'invite' | 'reset',
     ttlMinutes = 60 * 48,
   ) {
@@ -28,7 +28,7 @@ export class PasswordTokenService {
 
     await this.repo.save(
       this.repo.create({
-        user: { uuid: user.uuid },
+        user: { id: user.id },
         tokenHash,
         type,
         expiresAt,
@@ -56,13 +56,13 @@ export class PasswordTokenService {
     await this.repo.update({ tokenHash, type }, { consumedAt: new Date() });
   }
 
-  async revokeAllForUser(userUUID: string, type: 'invite' | 'reset') {
+  async revokeAllForUser(userId: string, type: 'invite' | 'reset') {
     await this.repo
       .createQueryBuilder()
       .update()
       .set({ consumedAt: () => 'NOW()' })
-      .where('userUuid = :userUUID AND type = :type AND consumedAt IS NULL', {
-        userUUID,
+      .where('userId = :userId AND type = :type AND consumedAt IS NULL', {
+        userId,
         type,
       })
       .execute();

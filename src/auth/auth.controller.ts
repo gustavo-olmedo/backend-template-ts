@@ -57,7 +57,7 @@ export class AuthController {
       firstName: body.firstName,
       lastName: body.lastName,
       email: body.email,
-      role: { uuid: regularRole?.uuid },
+      role: { id: regularRole?.id },
     });
     // Password a identity
     await this.authIdentitiesService.upsertPassword(user, body.password);
@@ -142,14 +142,14 @@ export class AuthController {
 
     if (payload.typ !== 'refresh')
       throw new BadRequestException('Invalid token type');
-    const { sub: userUUID, sid: sessionId } = payload;
+    const { sub: userId, sid: sessionId } = payload;
 
     // Valida contra DB (no revocado, match hash, no expirado)
     const valid = await this.sessionsService.isValid(sessionId, refresh);
     if (!valid) throw new BadRequestException('Session invalid');
 
     // Emite nuevos tokens (rotación opcional manteniendo la misma sesión)
-    const user = await this.usersService.findOne({ uuid: userUUID });
+    const user = await this.usersService.findOne({ id: userId });
 
     if (!user) throw new BadRequestException('User not found.');
 
@@ -193,7 +193,7 @@ export class AuthController {
 
     const rec = await this.passwordTokens.verify(token, type);
     await this.authIdentitiesService.upsertPassword(rec.user, password);
-    await this.passwordTokens.revokeAllForUser(rec.user.uuid, type);
+    await this.passwordTokens.revokeAllForUser(rec.user.id, type);
     await this.passwordTokens.consume(token, type);
 
     return { ok: true, message: 'Password updated' };
@@ -233,7 +233,7 @@ export class AuthController {
         lastName: family_name ?? 'User',
         email,
         avatarUrl: picture ?? null,
-        role: regular ? { uuid: regular.uuid } : undefined,
+        role: regular ? { id: regular.id } : undefined,
       });
     }
 
@@ -285,8 +285,8 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('user')
   async me(@Req() req: Request) {
-    const uuid = await this.authService.userUUID(req);
-    return this.usersService.findOne({ uuid }, ['role']);
+    const id = await this.authService.userId(req);
+    return this.usersService.findOne({ id }, ['role']);
   }
 
   @Post('forgot-password')

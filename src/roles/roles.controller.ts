@@ -37,50 +37,48 @@ export class RolesController {
   @Post()
   async create(
     @Body('name') name: string,
-    @Body('permissionUUIDs') permissionUUIDs: string[],
+    @Body('permissionIds') permissionIds: string[],
   ): Promise<Role> {
-    if (!name || !permissionUUIDs || permissionUUIDs.length === 0) {
+    if (!name || !permissionIds || permissionIds.length === 0) {
       throw new BadRequestException();
     }
 
     return this.rolesService.save({
       name,
-      permissions: permissionUUIDs.map((uuid) => ({ uuid })),
+      permissions: permissionIds.map((id) => ({ id })),
     });
   }
 
   @HasPermission('roles')
-  @Get(':uuid')
-  async get(@Param('uuid') uuid): Promise<Role | null> {
-    return this.rolesService.findOne({ uuid }, ['permissions']);
+  @Get(':id')
+  async get(@Param('id') id): Promise<Role | null> {
+    return this.rolesService.findOne({ id }, ['permissions']);
   }
 
   @HasPermission('roles')
-  @Put(':uuid')
+  @Put(':id')
   async update(
-    @Param('uuid') uuid: string,
+    @Param('id') id: string,
     @Body('name') name: string,
-    @Body('permissionUUIDs') permissionUUIDs: string[],
+    @Body('permissionIds') permissionIds: string[],
   ) {
-    const role = await this.rolesService.findOne({ uuid }, ['permissions']);
+    const role = await this.rolesService.findOne({ id }, ['permissions']);
 
     if (!role) throw new NotFoundException();
 
     role.name = name;
 
-    if (permissionUUIDs) {
-      role.permissions = permissionUUIDs.map(
-        (uuid) => ({ uuid }) as Permission,
-      );
+    if (permissionIds) {
+      role.permissions = permissionIds.map((id) => ({ id }) as Permission);
     }
 
     return this.rolesService.save(role);
   }
 
   @HasPermission('roles')
-  @Delete(':uuid')
-  async delete(@Param('uuid') uuid: string) {
-    const role = await this.rolesService.findOne({ uuid });
+  @Delete(':id')
+  async delete(@Param('id') id: string) {
+    const role = await this.rolesService.findOne({ id });
 
     if (!role) throw new NotFoundException();
 

@@ -34,7 +34,7 @@ describe('RolesController', () => {
   it('should return all roles', async () => {
     const roles = [
       {
-        uuid: '1',
+        id: '1',
         name: 'admin',
         permissions: [],
         isActive: true,
@@ -54,12 +54,12 @@ describe('RolesController', () => {
       permissions: ['p1', 'p2'],
     };
     const savedRole = {
-      uuid: 'r1',
+      id: 'r1',
       name: 'editor',
       isActive: true,
       isSystem: true,
-      permissions: input.permissions.map((uuid) => ({
-        uuid,
+      permissions: input.permissions.map((id) => ({
+        id,
         name: 'view_users',
       })),
     };
@@ -69,13 +69,13 @@ describe('RolesController', () => {
     expect(result).toEqual(savedRole);
     expect(rolesService.save).toHaveBeenCalledWith({
       name: input.name,
-      permissions: input.permissions.map((uuid) => ({ uuid })),
+      permissions: input.permissions.map((id) => ({ id })),
     });
   });
 
-  it('should return a role by uuid', async () => {
+  it('should return a role by id', async () => {
     const role = {
-      uuid: 'r1',
+      id: 'r1',
       name: 'admin',
       permissions: [],
       isActive: true,
@@ -85,14 +85,14 @@ describe('RolesController', () => {
 
     const result = await controller.get('r1');
     expect(result).toEqual(role);
-    expect(rolesService.findOne).toHaveBeenCalledWith({ uuid: 'r1' }, [
+    expect(rolesService.findOne).toHaveBeenCalledWith({ id: 'r1' }, [
       'permissions',
     ]);
   });
 
   it('should update an existing role', async () => {
     const existingRole = {
-      uuid: 'r1',
+      id: 'r1',
       name: 'admin',
       permissions: [],
       isActive: true,
@@ -101,7 +101,7 @@ describe('RolesController', () => {
     const updatedRole = {
       ...existingRole,
       name: 'regular',
-      permissions: [{ uuid: 'p1' }],
+      permissions: [{ id: 'p1' }],
     };
 
     rolesService.findOne.mockResolvedValue(existingRole);
