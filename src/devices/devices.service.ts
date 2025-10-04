@@ -4,7 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 
 import { Device, DevicePlatform, PushProvider } from './models/devices.entity';
 import { User } from '../users/models/user.entity';
@@ -96,6 +96,29 @@ export class DevicesService {
     device.lastSeenAt = new Date();
 
     await this.devicesRepository.save(device);
+  }
+
+  /**
+   * List devices for a user.
+   * - Excludes revoked devices by default.
+   * - Ordered by lastSeenAt (desc) then createdAt (desc).
+   * - Supports simple pagination.
+   */
+  async listForUser(
+    user: Pick<User, 'uuid'>,
+    opts: { includeRevoked?: boolean; limit?: number; offset?: number } = {},
+  ): Promise<Device[]> {
+    const { includeRevoked = false, limit = 50, offset = 0 } = opts;
+
+    return this.devicesRepository.find({
+      where: {
+        user: { uuid: user.uuid },
+        ...(includeRevoked ? {} : { revokedAt: IsNull() }),
+      },
+      order: { lastSeenAt: 'DESC', createdAt: 'DESC' },
+      take: limit,
+      skip: offset,
+    });
   }
 
   async revoke(user: User, id: string) {
