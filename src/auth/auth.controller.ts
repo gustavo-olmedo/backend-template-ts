@@ -75,13 +75,15 @@ export class AuthController {
     const ok = await this.authIdentitiesService.comparePassword(user, password);
     if (!ok) throw new BadRequestException('Invalid credentials');
 
+    await this.authIdentitiesService.touchPasswordLogin(user, password);
+
     // Run the DB parts atomically
     const { access, refresh } = await this.sessionsService.withTransaction(
       async (sessionRepository) => {
         // INSERT shell session (DB generates id)
         const placeholderHash = await bcrypt.hash(
           `placeholder:${randomUUID()}`,
-          12,
+          Number(process.env.BCRYPT_COST) || 12,
         );
         const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const shell = await sessionRepository.save(
@@ -101,7 +103,12 @@ export class AuthController {
         // UPDATE row with the real refresh hash
         await sessionRepository.update(
           { id: shell.id },
-          { refreshTokenHash: await bcrypt.hash(refresh, 12) },
+          {
+            refreshTokenHash: await bcrypt.hash(
+              refresh,
+              Number(process.env.BCRYPT_COST) || 12,
+            ),
+          },
         );
 
         return { access, refresh };
@@ -235,7 +242,7 @@ export class AuthController {
         // INSERT shell session (DB generates id)
         const placeholderHash = await bcrypt.hash(
           `placeholder:${randomUUID()}`,
-          12,
+          Number(process.env.BCRYPT_COST) || 12,
         );
         const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const shell = await sessionRepository.save(
@@ -255,7 +262,12 @@ export class AuthController {
         // UPDATE row with the real refresh hash
         await sessionRepository.update(
           { id: shell.id },
-          { refreshTokenHash: await bcrypt.hash(refresh, 12) },
+          {
+            refreshTokenHash: await bcrypt.hash(
+              refresh,
+              Number(process.env.BCRYPT_COST) || 12,
+            ),
+          },
         );
 
         return { access, refresh };
