@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -57,10 +61,47 @@ export class DevicesService {
     );
   }
 
+  /**
+   * checks ownership (device belongs to the user)
+   * blocks updates if the device was revoked
+   * updates pushToken and bumps lastSeenAt
+   */
+  async updateToken(
+    user: Pick<User, 'uuid'>,
+    deviceId: string,
+    token: string | null,
+  ): Promise<void> {
+    // Ensure device exists and belongs to this user
+    const device = await this.devicesRepository.findOne({
+      where: { id: deviceId, user: { uuid: user.uuid } },
+      // Select fields you need to check; include revokedAt if your schema has it
+      select: [
+        'id',
+        'pushToken',
+        'lastSeenAt',
+        'revokedAt',
+      ] as (keyof Device)[],
+    });
+
+    if (!device) {
+      throw new NotFoundException('Device not found');
+    }
+
+    // If track revocation, block updates to revoked devices
+    if (typeof device.revokedAt !== 'undefined' && device.revokedAt) {
+      throw new BadRequestException('Device is revoked');
+    }
+
+    device.pushToken = token; // can be null to clear
+    device.lastSeenAt = new Date();
+
+    await this.devicesRepository.save(device);
+  }
+
   async revoke(user: User, id: string) {
     await this.devicesRepository.update(
       { id, user: { uuid: user.uuid } },
-      { revokeAt: new Date() },
+      { revokedAt: new Date() },
     );
   }
 }
