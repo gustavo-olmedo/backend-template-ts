@@ -14,6 +14,7 @@ import { PermissionsModule } from './permissions/permissions.module';
 import { FileStorageModule } from './file-storage/file-storage.module';
 import { PermissionsGuard } from './permissions/permissions.guard';
 import { MailModule } from './mail/mail.module';
+import { DevicesModule } from './devices/devices.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { MailModule } from './mail/mail.module';
         process.env.MAIL_FROM || 'Your App <gustavo.olmedo.formosa@gmail.com>',
       cache: process.env.NODE_ENV === 'production',
     }),
+    DevicesModule,
   ],
   providers: [
     {
