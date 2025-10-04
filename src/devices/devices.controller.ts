@@ -2,6 +2,8 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
+  Get,
   Param,
   Patch,
   Post,
@@ -68,6 +70,24 @@ export class DevicesController {
     const user = await this.usersService.findOne({ uuid: userUUID });
     if (!user) throw new BadRequestException('User not found.');
     await this.devicesService.updateToken(user, id, body.pushToken ?? null);
+    return { ok: true };
+  }
+
+  @Get()
+  async list(@Req() req) {
+    const userUUID = await this.authService.userUUID(req);
+    const user = await this.usersService.findOne({ uuid: userUUID });
+    if (!user) throw new BadRequestException('User not found.');
+    return this.devicesService.listForUser(user);
+  }
+
+  @Delete(':id')
+  async revoke(@Req() req, @Param('id') id: string) {
+    const userUUID = await this.authService.userUUID(req);
+    const user = await this.usersService.findOne({ uuid: userUUID });
+    if (!user) throw new BadRequestException('User not found.');
+    await this.devicesService.revoke(user, id);
+    // Optionally also revoke sessions tied to this device inside the service.
     return { ok: true };
   }
 }
