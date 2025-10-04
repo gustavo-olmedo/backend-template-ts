@@ -107,7 +107,7 @@ export class UsersController {
   @HasPermission('users')
   @Patch('info')
   async updateInfo(@Req() request, @Body() body: UserUpdateInfoDto) {
-    const id = await this.authService.userId(request);
+    const id = await this.authService.getUserId(request);
     await this.usersService.update(id, {
       ...body,
     });
@@ -125,7 +125,7 @@ export class UsersController {
       throw new BadRequestException('Password do not match!');
     }
 
-    const id = await this.authService.userId(request);
+    const id = await this.authService.getUserId(request);
     const user = await this.usersService.findOne({ id });
     if (!user) throw new NotFoundException('User not found');
 
@@ -199,7 +199,7 @@ export class UsersController {
       throw new BadRequestException('Invalid image content.');
     }
 
-    const id = await this.authService.userId(request);
+    const id = await this.authService.getUserId(request);
 
     // Upload via configured storage (local for dev or cloudinary for prod)
     const uploaded = await this.fileStorage.uploadBuffer(file, {

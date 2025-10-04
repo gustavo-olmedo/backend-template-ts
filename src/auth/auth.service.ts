@@ -46,7 +46,7 @@ export class AuthService {
   }
 
   // Extract userId from access token
-  async userId(request: Request): Promise<string> {
+  async getUserId(request: Request): Promise<string> {
     const raw =
       request.cookies['access_token'] ??
       (request.headers.authorization?.startsWith('Bearer ')

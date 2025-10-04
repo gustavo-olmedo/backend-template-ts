@@ -285,7 +285,7 @@ export class AuthController {
   @UseGuards(AuthGuard)
   @Get('user')
   async me(@Req() req: Request) {
-    const id = await this.authService.userId(req);
+    const id = await this.authService.getUserId(req);
     return this.usersService.findOne({ id }, ['role']);
   }
 

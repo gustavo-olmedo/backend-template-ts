@@ -29,7 +29,7 @@ export class DevicesController {
 
   @Post('register')
   async register(@Req() req, @Body() body: RegisterDeviceDto) {
-    const userId = await this.authService.userId(req);
+    const userId = await this.authService.getUserId(req);
     const user = await this.usersService.findOne({ id: userId });
     if (!user) throw new BadRequestException('User not found.');
 
@@ -51,7 +51,7 @@ export class DevicesController {
 
   @Post('heartbeat') // App foreground/resume events (mobile), or periodically (e.g. every 24h) while the app is active. Web: on page load or visibility change (optional)
   async heartbeat(@Req() req, @Body() body: HeartbeatDto) {
-    const userId = await this.authService.userId(req);
+    const userId = await this.authService.getUserId(req);
     const user = await this.usersService.findOne({ id: userId });
     if (!user) throw new BadRequestException('User not found.');
 
@@ -66,7 +66,7 @@ export class DevicesController {
     @Param('id') id: string,
     @Body() body: UpdateTokenDto,
   ) {
-    const userId = await this.authService.userId(req);
+    const userId = await this.authService.getUserId(req);
     const user = await this.usersService.findOne({ id: userId });
     if (!user) throw new BadRequestException('User not found.');
     await this.devicesService.updateToken(user, id, body.pushToken ?? null);
@@ -75,7 +75,7 @@ export class DevicesController {
 
   @Get()
   async list(@Req() req) {
-    const userId = await this.authService.userId(req);
+    const userId = await this.authService.getUserId(req);
     const user = await this.usersService.findOne({ id: userId });
     if (!user) throw new BadRequestException('User not found.');
     return this.devicesService.listForUser(user);
@@ -83,7 +83,7 @@ export class DevicesController {
 
   @Delete(':id')
   async revoke(@Req() req, @Param('id') id: string) {
-    const userId = await this.authService.userId(req);
+    const userId = await this.authService.getUserId(req);
     const user = await this.usersService.findOne({ id: userId });
     if (!user) throw new BadRequestException('User not found.');
     await this.devicesService.revoke(user, id);
