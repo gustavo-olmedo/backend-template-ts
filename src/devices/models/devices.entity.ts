@@ -51,7 +51,7 @@ export class Device {
   @Column({ type: 'text', nullable: true }) appVersion?: string | null;
 
   @Column({ type: 'timestamptz', nullable: true }) lastSeenAt?: Date | null;
-  @Column({ type: 'timestamptz', nullable: true }) revokeAt?: Date | null;
+  @Column({ type: 'timestamptz', nullable: true }) revokedAt?: Date | null;
 
   @CreateDateColumn() createdAt: Date;
   @CreateDateColumn() updatedAt: Date;
