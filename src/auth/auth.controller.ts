@@ -27,6 +27,7 @@ import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { PasswordTokenService } from './password-token.service';
 import { AuthGuard } from './auth/auth.guard';
 import { MailService } from '../mail/mail.service';
+import { LoginDto } from './dtos/login.dto';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -65,17 +66,19 @@ export class AuthController {
 
   @Post('login')
   async login(
-    @Body('email') email: string,
-    @Body('password') password: string,
+    @Body() body: LoginDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const user = await this.usersService.findOne({ email });
+    const user = await this.usersService.findOne({ email: body.email });
     if (!user) throw new NotFoundException('User not found');
-    const ok = await this.authIdentitiesService.comparePassword(user, password);
+    const ok = await this.authIdentitiesService.comparePassword(
+      user,
+      body.password,
+    );
     if (!ok) throw new BadRequestException('Invalid credentials');
 
-    await this.authIdentitiesService.touchPasswordLogin(user, password);
+    await this.authIdentitiesService.touchPasswordLogin(user, body.password);
 
     // Run the DB parts atomically
     const { access, refresh } = await this.sessionsService.withTransaction(
