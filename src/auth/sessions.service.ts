@@ -22,7 +22,10 @@ export class SessionsService extends AbstractService<Session> {
     ttlDays = 30,
     meta?: { ip?: string; ua?: string },
   ) {
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
+    const refreshTokenHash = await bcrypt.hash(
+      refreshToken,
+      Number(process.env.BCRYPT_COST) || 12,
+    );
     const expires = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
     const session = this.sessionRepository.create({
       user,

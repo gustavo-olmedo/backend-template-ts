@@ -56,7 +56,10 @@ async function runSeed(app: INestApplication) {
   if (!adminUser) {
     const adminRole = await rolesService.findOne({ name: 'admin' });
 
-    const password = await bcrypt.hash('admin', 12);
+    const password = await bcrypt.hash(
+      'admin',
+      Number(process.env.BCRYPT_COST) || 12,
+    );
     await usersService.save({
       firstName: 'admin',
       lastName: 'admin',

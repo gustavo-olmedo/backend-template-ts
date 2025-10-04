@@ -82,7 +82,10 @@ async function bootstrap() {
   const adminRole = await rolesRepo.findOne({ where: { name: 'admin' } });
 
   // Create admin user
-  const password = await bcrypt.hash(process.env.DEFAULT_ADMIN_PASSWORD!, 12);
+  const password = await bcrypt.hash(
+    process.env.DEFAULT_ADMIN_PASSWORD!,
+    Number(process.env.BCRYPT_COST) || 12,
+  );
 
   await usersService.save({
     firstName: 'admin',

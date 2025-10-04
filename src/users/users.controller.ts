@@ -129,7 +129,10 @@ export class UsersController {
     const user = await this.usersService.findOne({ uuid });
     if (!user) throw new NotFoundException('User not found');
 
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const hashedPassword = await bcrypt.hash(
+      password,
+      Number(process.env.BCRYPT_COST) || 12,
+    );
     await this.authIdentitiesService.upsertPassword(user, hashedPassword);
     return user;
   }
