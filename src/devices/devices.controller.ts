@@ -2,6 +2,8 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -12,12 +14,13 @@ import { RegisterDeviceDto } from './dtos/register-device.dto';
 import { AuthService } from 'src/auth/auth.service';
 import { UsersService } from 'src/users/users.service';
 import { HeartbeatDto } from './dtos/heartbeat.dto';
+import { UpdateTokenDto } from './dtos/update-token.dto';
 
 @UseGuards(AuthGuard)
 @Controller('devices')
 export class DevicesController {
   constructor(
-    private readonly devices: DevicesService,
+    private readonly devicesService: DevicesService,
     private authService: AuthService,
     private usersService: UsersService,
   ) {}
@@ -28,7 +31,7 @@ export class DevicesController {
     const user = await this.usersService.findOne({ uuid: userUUID });
     if (!user) throw new BadRequestException('User not found.');
 
-    const device = await this.devices.upsertByInstance(
+    const device = await this.devicesService.upsertByInstance(
       user,
       body.appInstanceId,
       {
@@ -50,8 +53,21 @@ export class DevicesController {
     const user = await this.usersService.findOne({ uuid: userUUID });
     if (!user) throw new BadRequestException('User not found.');
 
-    await this.devices.heartbeat(user, body.appInstanceId);
+    await this.devicesService.heartbeat(user, body.appInstanceId);
 
+    return { ok: true };
+  }
+
+  @Patch(':id/token')
+  async updateToken(
+    @Req() req,
+    @Param('id') id: string,
+    @Body() body: UpdateTokenDto,
+  ) {
+    const userUUID = await this.authService.userUUID(req);
+    const user = await this.usersService.findOne({ uuid: userUUID });
+    if (!user) throw new BadRequestException('User not found.');
+    await this.devicesService.updateToken(user, id, body.pushToken ?? null);
     return { ok: true };
   }
 }
