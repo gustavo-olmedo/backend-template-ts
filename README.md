@@ -163,6 +163,8 @@ src/
 - Add from/to dates to paginate to get all entities filter by date
 - Add query parameter to paginate to filter entities by different properties
 - Add sortBy and desc parameters to paginate to sort entities by property
+- Add rate limits & audit logs on auth endpoints
+- Add email change flow that syncs `providerUid` for password identity
 - Set up Swagger docs
 
 ## PgAdmin DB setup
