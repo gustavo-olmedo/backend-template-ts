@@ -3,20 +3,24 @@
 A ready-to-use NestJS backend template with:
 
 - PostgreSQL via Docker
-- Role & Permission system (with seeder)
+- Role & Permission system (seeders included)
+- Authentication with JWT (HTTP-only cookies for refresh) + **Password identities in `auth_identities`**
+- **Sessions** table with refresh-token rotation
+- **Devices** tracking (register/heartbeat/push token)
+- **Google SSO** (verify ID token server-side)
 - Environment-based configuration
-- Authentication with JWT
+- Docker-friendly hot-reload setup
 
 ## 🚀 Getting Started
 
-### 1️⃣ Clone the repository
+### Clone the repository
 
 ```bash
 git clone https://github.com/gustavo-olmedo/backend-template-ts.git
 cd backend-template-ts
 ```
 
-### 2️⃣ Install dependencies
+### Install dependencies
 
 ```bash
 yarn install
@@ -24,7 +28,7 @@ yarn install
 
 > This will install all required packages and fix common post-install issues.
 
-### 3️⃣ Configure environment variables
+### Configure environment variables
 
 Create a `.env` file based on the provided `.env.example`:
 
@@ -35,23 +39,41 @@ cp .env.example .env
 Fill in the values (or leave the defaults):
 
 ```env
-NODE_ENV=development
+NODE_ENV=test
+PUBLIC_BASE_URL=http://localhost:8000 #runs in 3000 but docker-compose maps it to 8000
 
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 POSTGRES_PASSWORD=postgres
 POSTGRES_USER=postgres
-POSTGRES_DATABASE=postgres
+POSTGRES_DATABASE=test_db
 
 DEFAULT_ADMIN_EMAIL=admin@mail.com
 DEFAULT_ADMIN_PASSWORD=admin
 
-JWT_SECRET=your-secret-key
+# auth jwt token
+AUTH_COOKIE_NAME=access_token
+AUTH_REFRESH_COOKIE_NAME=refresh_token
+JWT_SECRET=JWT_SECRET
+BCRYPT_COST=12
+
+# Test (local saving)
+FILE_STORAGE_DRIVER=local
+UPLOADS_ROOT=./uploads
+UPLOADS_AVATAR_DIR=avatars
+
+
+# emails
+MAIL_TRANSPORT=smtp://USERNAME:PASSWORD@smtp.ethereal.email:587 # Create credentials at https://ethereal.email/ and view messages in their web UI
+MAIL_FROM=gustavoemailprueba@gmail.com
+
+# sso gogle
+GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID
 ```
 
 > 🔐 Make sure to use a strong `JWT_SECRET` in production!
 
-### 4️⃣ Start the application
+### Start the application
 
 Use Docker Compose to spin up the backend and Postgres services:
 
@@ -61,7 +83,11 @@ docker compose up
 
 Wait until the services are fully running (Nest app should log that it's ready).
 
-### 5️⃣ Seed roles, permissions, and the default admin user
+- API: http://localhost:8000 (proxied to Nest 3000 in container)
+- Postgres: localhost:5432 (container: `db`)
+- PgAdmin (optional): http://localhost:5050
+
+### Seed roles, permissions, and the default admin user
 
 In a **separate terminal**, run the following:
 
@@ -76,6 +102,19 @@ This will:
 - Create an **admin user** using:
   - `DEFAULT_ADMIN_EMAIL`
   - `DEFAULT_ADMIN_PASSWORD`
+
+### Seed 10 regular users
+
+In a **separate terminal**, run the following:
+
+```bash
+yarn seed:users:docker
+```
+
+This will:
+
+- Create 10 users
+- All users will have `regular` role
 
 ## 🔐 Logging In
 
@@ -95,6 +134,7 @@ Password: admin
 | `yarn start:dev`              | Start the app in watch mode locally (if not using Docker) |
 | `docker compose up`           | Start the backend and DB                                  |
 | `yarn seed:permissions-roles` | Seed initial data                                         |
+| `yarn seed:users`             | Seed 10 regular users                                     |
 
 ## 🛠 Tech Stack
 
@@ -108,12 +148,13 @@ Password: admin
 
 ```bash
 src/
-  auth/              # Auth logic (JWT, guards, strategies)
-  users/             # Users module
-  roles/             # Roles module
-  permissions/       # Permissions module
-  shared/            # Shared logic (JwtModule, etc.)
-  commands/          # Seeder scripts (like permissions-roles)
+  auth/                # Auth logic, guards, sessions, SSO, identities
+  devices/             # Device registration / heartbeat / tokens
+  users/               # Users module
+  roles/               # Roles module
+  permissions/         # Permissions module
+  file-storage/        # Abstraction for avatar uploads (local/cloud)
+  commands/            # Seeders (permissions-roles, users)
 ```
 
 ## ✅ Next Steps
@@ -172,227 +213,6 @@ $ yarn run test:e2e
 
 # test coverage
 $ yarn run test:cov
-```
-
-## 📡 API Endpoints (with curl examples)
-
-> 🧠 Replace `<TOKEN>` with your JWT when required.
-
----
-
-### 🔐 Auth
-
-#### `POST /api/login`
-
-Authenticate a user and return a JWT.
-
-```bash
-curl -X POST http://localhost:8000/api/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@mail.com",
-    "password": "admin"
-  }'
-```
-
-#### `POST /api/register`
-
-Register a new user.
-
-```bash
-curl -X POST http://localhost:8000/api/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "gustavo register",
-    "lastName": "olmedo register",
-    "email": "mail@mail.com",
-    "password": "Password",
-    "passwordConfirm": "Password"
-  }'
-```
-
-#### `GET /api/user`
-
-Get current user info.
-
-```bash
-curl http://localhost:8000/api/user \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-#### `POST /api/logout`
-
-Log out the current user.
-
-```bash
-curl -X POST http://localhost:8000/api/logout \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
----
-
-### 👥 Users
-
-#### `GET /api/users`
-
-List all users.
-
-```bash
-curl http://localhost:8000/api/users \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-#### `GET /api/users/:id`
-
-Get a single user by Id.
-
-```bash
-curl http://localhost:8000/api/users/<USER_Id> \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-#### `POST /api/users`
-
-Create a new user.
-
-```bash
-curl -X POST http://localhost:8000/api/users \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "gustavo",
-    "lastName": "olmedo",
-    "email": "mail@mail.com",
-    "password": "Password",
-    "passwordConfirm": "Password",
-    "roleId": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
-  }'
-```
-
-#### `PUT /api/users/:id`
-
-Update a user by Id.
-
-```bash
-curl -X PUT http://localhost:8000/api/users/<USER_Id> \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "gustavo",
-    "lastName": "olmedo",
-    "email": "golmedo@mail.com",
-    "roleId": "eb3bf529-63fd-4585-8f0a-53d588172a6e"
-  }'
-```
-
-#### `PATCH /api/users/info`
-
-Update current user's info.
-
-```bash
-curl -X PATCH http://localhost:8000/api/users/info \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "gustavo",
-    "lastName": "olmedo",
-    "email": "admin@mail.com",
-  }'
-```
-
-#### `PATCH /api/users/password`
-
-Change current user's password.
-
-```bash
-curl -X PATCH http://localhost:8000/api/users/password \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "password": "admin",
-    "passwordConfirm": "admin"
-  }'
-```
-
-#### `DELETE /api/users/:id`
-
-Delete a user by Id.
-
-```bash
-curl -X DELETE http://localhost:8000/api/users/<USER_Id> \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
----
-
-### 🔐 Permissions
-
-#### `GET /api/permissions`
-
-List all permissions.
-
-```bash
-curl http://localhost:8000/api/permissions \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
----
-
-### 🛡️ Roles
-
-#### `GET /api/roles`
-
-List all roles.
-
-```bash
-curl http://localhost:8000/api/roles \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-#### `GET /api/roles/:id`
-
-Get a role by Id.
-
-```bash
-curl http://localhost:8000/api/roles/<ROLE_Id> \
-  -H "Authorization: Bearer <TOKEN>"
-```
-
-#### `POST /api/roles`
-
-Create a new role.
-
-```bash
-curl -X POST http://localhost:8000/api/roles \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "test",
-    "permissionIds": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
-  }'
-```
-
-#### `PUT /api/roles/:id`
-
-Update a role.
-
-```bash
-curl -X PUT http://localhost:8000/api/roles/<ROLE_Id> \
-  -H "Authorization: Bearer <TOKEN>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "test",
-    "permissionIds": ["99083e51-8916-4e2e-8cd1-7c2957032d58"]
-  }'
-```
-
-#### `DELETE /api/roles/:id`
-
-Delete a role.
-
-```bash
-curl -X DELETE http://localhost:8000/api/roles/<ROLE_Id> \
-  -H "Authorization: Bearer <TOKEN>"
 ```
 
 ## Deployment
