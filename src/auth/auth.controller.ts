@@ -28,6 +28,9 @@ import { PasswordTokenService } from './password-token.service';
 import { AuthGuard } from './auth/auth.guard';
 import { MailService } from '../mail/mail.service';
 import { LoginDto } from './dtos/login.dto';
+import { Device } from '../devices/models/device.entity';
+import { DevicesService } from '../devices/devices.service';
+import { LoginSSODto } from './dtos/login-sso.dto';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
@@ -45,6 +48,7 @@ export class AuthController {
     private jwtService: JwtService,
     private passwordTokenService: PasswordTokenService,
     private mailService: MailService,
+    private devicesService: DevicesService,
   ) {}
 
   @Post('register')
@@ -79,6 +83,22 @@ export class AuthController {
     if (!ok) throw new BadRequestException('Invalid credentials');
 
     await this.authIdentitiesService.touchPasswordLogin(user, body.password);
+    let device: Device | undefined;
+    if (body.appInstanceId) {
+      device = await this.devicesService.upsertByInstance(
+        user,
+        body.appInstanceId,
+        {
+          platform: body.platform ?? 'web',
+          pushToken: body.pushToken,
+          locale: body.locale,
+          timezone: body.timezone,
+          model: body.model,
+          osVersion: body.osVersion,
+          appVersion: body.appVersion,
+        },
+      );
+    }
 
     // Run the DB parts atomically
     const { access, refresh } = await this.sessionsService.withTransaction(
@@ -96,6 +116,7 @@ export class AuthController {
             expiresAt: expires,
             ip: req.ip,
             userAgent: req.headers['user-agent'] as string | undefined,
+            device,
           }),
         );
 
@@ -201,14 +222,14 @@ export class AuthController {
 
   @Post('sso/google')
   async ssoGoogle(
-    @Body('idToken') idToken: string,
+    @Body() body: LoginSSODto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    if (!idToken) throw new BadRequestException('Missing idToken');
+    if (!body.idToken) throw new BadRequestException('Missing idToken');
 
     const ticket = await googleClient.verifyIdToken({
-      idToken,
+      idToken: body.idToken,
       audience: GOOGLE_CLIENT_ID,
     });
     const payload = ticket.getPayload();
@@ -238,6 +259,22 @@ export class AuthController {
     }
 
     await this.authIdentitiesService.upsertSso(user, 'google', googleSub);
+    let device: Device | undefined;
+    if (body.appInstanceId) {
+      device = await this.devicesService.upsertByInstance(
+        user,
+        body.appInstanceId,
+        {
+          platform: body.platform ?? 'web',
+          pushToken: body.pushToken,
+          locale: body.locale,
+          timezone: body.timezone,
+          model: body.model,
+          osVersion: body.osVersion,
+          appVersion: body.appVersion,
+        },
+      );
+    }
 
     // Run the DB parts atomically
     const { access, refresh } = await this.sessionsService.withTransaction(
@@ -255,6 +292,7 @@ export class AuthController {
             expiresAt: expires,
             ip: req.ip,
             userAgent: req.headers['user-agent'] as string | undefined,
+            device,
           }),
         );
 
