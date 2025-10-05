@@ -3,9 +3,9 @@ import { DevicesController } from './devices.controller';
 import { DevicesService } from './devices.service';
 import { Device } from './models/device.entity';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuthModule } from 'src/auth/auth.module';
-import { UsersModule } from 'src/users/users.module';
-import { SharedModule } from 'src/shared/shared.module';
+import { AuthModule } from '../auth/auth.module';
+import { UsersModule } from '../users/users.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [

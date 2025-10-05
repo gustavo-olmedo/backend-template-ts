@@ -10,11 +10,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { AuthGuard } from 'src/auth/auth/auth.guard';
+import { AuthGuard } from '../auth/auth/auth.guard';
 import { DevicesService } from './devices.service';
 import { RegisterDeviceDto } from './dtos/register-device.dto';
-import { AuthService } from 'src/auth/auth.service';
-import { UsersService } from 'src/users/users.service';
+import { AuthService } from '../auth/auth.service';
+import { UsersService } from '../users/users.service';
 import { HeartbeatDto } from './dtos/heartbeat.dto';
 import { UpdateTokenDto } from './dtos/update-token.dto';
 

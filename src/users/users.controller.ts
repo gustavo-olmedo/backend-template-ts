@@ -21,25 +21,31 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
+import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
 import * as bcrypt from 'bcryptjs';
-import { User } from './models/user.entity';
-import { UsersService } from './users.service';
-import { AuthGuard } from '../auth/auth/auth.guard';
-import { UserCreateDto } from './dtos/user-create.dto';
-import { UserUpdateDto } from './dtos/user-update.dto';
-import { AuthService } from '../auth/auth.service';
-import { HasPermission } from '../permissions/has-permission.decorator';
-import { UserUpdateInfoDto } from './dtos/user-update-info.dto';
-import { Throttle } from '@nestjs/throttler';
 import sharp from 'sharp';
 import { fileTypeFromBuffer } from 'file-type';
-import { FileStorage } from 'src/file-storage/interfaces/file-storage.interface';
-import { FILE_STORAGE } from 'src/file-storage/file-storage.module';
-import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
-import { PasswordTokenService } from 'src/auth/password-token.service';
-import { MailService } from 'src/mail/mail.service';
-import { AuthIdentitiesService } from 'src/auth/auth-identities.service';
+
+// Services
+import { UsersService } from './users.service';
+import { AuthService } from '../auth/auth.service';
+import { PasswordTokenService } from '../auth/password-token.service';
+import { MailService } from '../mail/mail.service';
+import { AuthIdentitiesService } from '../auth/auth-identities.service';
+
+// Others
+import { AuthGuard } from '../auth/auth/auth.guard';
+import { HasPermission } from '../permissions/has-permission.decorator';
+import { FileStorage } from '../file-storage/interfaces/file-storage.interface';
+
+// Entities and DTOS
+import { User } from './models/user.entity';
+import { UserCreateDto } from './dtos/user-create.dto';
+import { UserUpdateDto } from './dtos/user-update.dto';
+import { UserUpdateInfoDto } from './dtos/user-update-info.dto';
+import { FILE_STORAGE } from '../file-storage/file-storage.module';
 
 // Multer memory + basic filter (validators still run afterwards)
 const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];

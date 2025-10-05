@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcryptjs';
 
-import { AbstractService } from 'src/shared/abstract.service';
+import { AbstractService } from '../shared/abstract.service';
 import { Session } from './models/session.entity';
 import { User } from '../users/models/user.entity';
 
