@@ -1,102 +1,112 @@
 import { NestFactory } from '@nestjs/core';
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcryptjs';
 
 import { AppModule } from '../app.module';
-
 import { Permission } from '../permissions/models/permission.entity';
 import { Role } from '../roles/models/role.entity';
 import { UsersService } from '../users/users.service';
+import { AuthIdentitiesService } from '../auth/auth-identities.service';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
-  const usersService = app.get(UsersService);
-  const dataSource = app.get(DataSource);
 
-  const permissionsRepo = dataSource.getRepository(Permission);
-  const rolesRepo = dataSource.getRepository(Role);
+  try {
+    const usersService = app.get(UsersService);
+    const dataSource = app.get(DataSource);
+    const authIdentities = app.get(AuthIdentitiesService);
 
-  // Create permissions
-  const permissionNames = [
-    'view_users',
-    'edit_users',
-    'view_roles',
-    'edit_roles',
-  ];
+    const permissionsRepo = dataSource.getRepository(Permission);
+    const rolesRepo = dataSource.getRepository(Role);
 
-  const permissions: Permission[] = [];
+    // 1) Upsert permissions (idempotent)
+    const permissionNames = [
+      'view_users',
+      'edit_users',
+      'view_roles',
+      'edit_roles',
+    ];
+    const permissionsByName = new Map<string, Permission>();
 
-  for (const name of permissionNames) {
-    let permission = await permissionsRepo.findOne({ where: { name } });
-
-    if (!permission) {
-      permission = permissionsRepo.create({ name });
-      await permissionsRepo.save(permission);
+    for (const name of permissionNames) {
+      let p = await permissionsRepo.findOne({ where: { name } });
+      if (!p) {
+        p = permissionsRepo.create({ name });
+        p = await permissionsRepo.save(p);
+      }
+      permissionsByName.set(name, p);
     }
 
-    permissions.push(permission);
-  }
+    // 2) Upsert roles and attach permissions (idempotent)
+    const rolesToCreate: Array<{
+      name: string;
+      isSystem: boolean;
+      permissionNames: string[];
+    }> = [
+      { name: 'admin', isSystem: true, permissionNames: permissionNames }, // all
+      {
+        name: 'regular',
+        isSystem: true,
+        permissionNames: ['view_users', 'view_roles'],
+      },
+    ];
 
-  // Create roles
-  const rolesToCreate = [
-    {
-      name: 'admin',
-      permissionNames: permissionNames, // all permissions
-      isSystem: true,
-    },
-    {
-      name: 'regular',
-      permissionNames: ['view_users', 'view_roles'], // limited
-      isSystem: true,
-    },
-  ];
+    for (const def of rolesToCreate) {
+      let role = await rolesRepo.findOne({
+        where: { name: def.name },
+        relations: ['permissions'],
+      });
+      const wantedPerms = def.permissionNames.map(
+        (n) => permissionsByName.get(n)!,
+      );
 
-  for (const { name, permissionNames } of rolesToCreate) {
-    let role = await rolesRepo.findOne({
-      where: { name },
-      relations: ['permissions'],
-    });
-
-    const rolePermissions = permissions.filter((p) =>
-      permissionNames.includes(p.name),
-    );
-
-    if (!role) {
-      role = rolesRepo.create({ name, permissions: rolePermissions });
-    } else {
-      role.permissions = rolePermissions;
+      if (!role) {
+        role = rolesRepo.create({
+          name: def.name,
+          isSystem: def.isSystem,
+          permissions: wantedPerms,
+          isActive: true,
+        });
+      } else {
+        role.isSystem = def.isSystem;
+        role.isActive = role.isActive ?? true;
+        role.permissions = wantedPerms;
+      }
+      await rolesRepo.save(role);
     }
 
-    await rolesRepo.save(role);
+    const adminRole = await rolesRepo.findOne({ where: { name: 'admin' } });
+    if (!adminRole) throw new Error('Admin role missing after seed.');
+
+    // 3) Upsert admin user (no password column anymore)
+    const adminEmail = process.env.DEFAULT_ADMIN_EMAIL || 'admin@mail.com';
+    const adminPlainPassword =
+      process.env.DEFAULT_ADMIN_PASSWORD || 'ChangeMeNow!123';
+
+    let adminUser = await usersService.findOne({ email: adminEmail });
+    if (!adminUser) {
+      adminUser = await usersService.save({
+        firstName: 'admin',
+        lastName: 'admin',
+        email: adminEmail,
+        role: { id: adminRole.id },
+      });
+    } else if (!adminUser.role || adminUser.role.id !== adminRole.id) {
+      adminUser.role = { id: adminRole.id } as any;
+      adminUser = await usersService.save(adminUser);
+    }
+
+    // 4) Ensure admin has password identity
+    await authIdentities.upsertPassword(adminUser, adminPlainPassword);
+
+    console.log('✅ Permissions & roles seeded; admin user ensured.');
+  } catch (err) {
+    console.error('❌ Seed failed:', err);
+    process.exitCode = 1;
+  } finally {
+    // clean shutdown so Docker/Nest watchers don’t get confused
+    await app.close();
+    process.exit(process.exitCode ?? 0);
   }
-
-  const adminUser = await usersService.findOne({
-    email: 'admin@mail.com',
-  });
-
-  if (adminUser) {
-    console.log('✅ Permissions and roles created, admin user seeded.');
-    process.exit();
-  }
-
-  const adminRole = await rolesRepo.findOne({ where: { name: 'admin' } });
-
-  // Create admin user
-  const password = await bcrypt.hash(
-    process.env.DEFAULT_ADMIN_PASSWORD!,
-    Number(process.env.BCRYPT_COST) || 12,
-  );
-
-  await usersService.save({
-    firstName: 'admin',
-    lastName: 'admin',
-    email: process.env.DEFAULT_ADMIN_EMAIL,
-    password,
-    role: { id: adminRole?.id }, // admin role id
-  });
-
-  console.log('✅ Permissions and roles created, admin user seeded.');
-  process.exit();
 }
 
 bootstrap();
