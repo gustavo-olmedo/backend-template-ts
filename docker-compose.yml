@@ -13,6 +13,8 @@ services:
       # These help file-watching on Windows/macOS bind mounts.
       - CHOKIDAR_USEPOLLING=true
       - CHOKIDAR_INTERVAL=800
+      - WATCHPACK_POLLING=true # <- helps Nest’s webpack-based watch
+      - TSC_WATCHFILE=UsePolling # <- helps TypeScript watchers in containers
       # Uncomment only if you ever need to force a target (usually not needed):
       # - npm_config_platform=linux
       # - npm_config_arch=arm64
