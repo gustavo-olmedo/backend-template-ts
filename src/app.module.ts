@@ -33,7 +33,7 @@ import { DevicesModule } from './devices/devices.module';
       password: process.env.POSTGRES_PASSWORD,
       username: process.env.POSTGRES_USER,
       database: process.env.POSTGRES_DATABASE,
-      synchronize: false,
+      synchronize: true,
       autoLoadEntities: process.env.NODE_ENV !== 'production',
       logging: true,
     }),
