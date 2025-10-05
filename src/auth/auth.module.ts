@@ -11,6 +11,7 @@ import { AuthIdentity } from './models/auth-identity.entity';
 import { Session } from './models/session.entity';
 import { AuthIdentitiesService } from './auth-identities.service';
 import { SessionsService } from './sessions.service';
+import { DevicesModule } from '../devices/devices.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { SessionsService } from './sessions.service';
     TypeOrmModule.forFeature([PasswordToken, AuthIdentity, Session]),
     SharedModule,
     RolesModule,
+    DevicesModule,
   ],
   controllers: [AuthController],
   providers: [
