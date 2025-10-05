@@ -399,8 +399,3 @@ Common errors: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not 
 - Default admin comes from seeder env: `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`.
 
 ---
-
-## 📌 Versioning
-
-- This doc matches the controllers you shared (Auth, Devices, Permissions, Roles, Users) with `auth_identities`.
-- When you add new modules, mirror the format here.

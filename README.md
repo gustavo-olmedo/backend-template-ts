@@ -152,6 +152,7 @@ src/
   devices/             # Device registration / heartbeat / tokens
   users/               # Users module
   roles/               # Roles module
+  mail/                # Mail module that contains templates built with mjml
   permissions/         # Permissions module
   file-storage/        # Abstraction for avatar uploads (local/cloud)
   commands/            # Seeders (permissions-roles, users)
