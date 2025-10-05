@@ -15,7 +15,7 @@ export class AuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<RequestWithId>();
     try {
       const request = context.switchToHttp().getRequest();
-      const jwt = request.cookies['jwt'];
+      const jwt = request.cookies[process.env.AUTH_COOKIE_NAME!];
       if (!jwt) throw new UnauthorizedException();
 
       const payload = await this.jwtService.verifyAsync(jwt);

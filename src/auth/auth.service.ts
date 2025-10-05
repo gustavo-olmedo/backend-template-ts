@@ -7,21 +7,30 @@ import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { User } from '../users/models/user.entity';
 
-type JwtPayload = { sub: string; sid: string; typ: 'access' | 'refresh' };
+export type JwtTyp = 'access_token' | 'refresh_token';
+type JwtPayload = { sub: string; sid: string; typ: JwtTyp };
 
 @Injectable()
 export class AuthService {
   constructor(private jwtService: JwtService) {}
   async signAccessToken(user: User, sessionId: string) {
     return this.jwtService.signAsync(
-      { sub: user.id, sid: sessionId, typ: 'access' } as JwtPayload,
+      {
+        sub: user.id,
+        sid: sessionId,
+        typ: process.env.AUTH_COOKIE_NAME,
+      } as JwtPayload,
       { expiresIn: '15m' },
     );
   }
 
   async signRefreshToken(user: User, sessionId: string) {
     return this.jwtService.signAsync(
-      { sub: user.id, sid: sessionId, typ: 'refresh' } as JwtPayload,
+      {
+        sub: user.id,
+        sid: sessionId,
+        typ: process.env.AUTH_REFRESH_COOKIE_NAME,
+      } as JwtPayload,
       { expiresIn: '30d' },
     );
   }
@@ -55,7 +64,8 @@ export class AuthService {
     if (!raw) throw new UnauthorizedException();
     try {
       const data = await this.jwtService.verifyAsync<JwtPayload>(raw);
-      if (data.typ !== 'access') throw new ForbiddenException();
+      if (data.typ !== process.env.AUTH_COOKIE_NAME)
+        throw new ForbiddenException();
       return data.sub;
     } catch {
       throw new ForbiddenException();
