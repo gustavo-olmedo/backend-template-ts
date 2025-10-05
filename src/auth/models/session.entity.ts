@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 
 import { User } from '../../users/models/user.entity';
-import { Device } from '../../devices/models/devices.entity';
+import { Device } from '../../devices/models/device.entity';
 
 @Entity('sessions')
 @Index(['user', 'revokedAt', 'expiresAt'])

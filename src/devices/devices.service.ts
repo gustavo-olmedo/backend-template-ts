@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 
-import { Device, DevicePlatform, PushProvider } from './models/devices.entity';
+import { Device, DevicePlatform, PushProvider } from './models/device.entity';
 import { User } from '../users/models/user.entity';
 
 @Injectable()
