@@ -144,7 +144,7 @@ export class AuthController {
     return { user, accessToken: access };
   }
 
-  @Post('refresh')
+  @Post('token/refresh')
   async refresh(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
