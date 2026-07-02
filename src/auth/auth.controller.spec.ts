@@ -1,46 +1,71 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { AuthController } from './auth.controller';
-import { UsersService } from '../users/users.service';
-import { JwtService } from '@nestjs/jwt';
-import { AuthService } from './auth.service';
-import { RolesService } from '../roles/roles.service';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { Test, TestingModule } from '@nestjs/testing';
+import { Request, Response } from 'express';
 import * as bcrypt from 'bcryptjs';
+import { AuthIdentitiesService } from './auth-identities.service';
+import { AuthController } from './auth.controller';
+import { AuthService } from './auth.service';
+import { PasswordTokenService } from './password-token.service';
+import { SessionsService } from './sessions.service';
+import { DevicesService } from '../devices/devices.service';
+import { MailService } from '../mail/mail.service';
+import { RolesService } from '../roles/roles.service';
+import { UsersService } from '../users/users.service';
 
-jest.mock('bcryptjs', () => ({
-  hash: jest.fn(),
-  compare: jest.fn(),
-}));
+jest.mock('bcryptjs', () => ({ hash: jest.fn() }));
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let usersService: jest.Mocked<UsersService>;
-  let jwtService: jest.Mocked<JwtService>;
-  let authService: jest.Mocked<AuthService>;
-  let rolesService: jest.Mocked<RolesService>;
+  const usersService = { save: jest.fn(), findOne: jest.fn() };
+  const rolesService = { findOne: jest.fn() };
+  const authService = {
+    getUserId: jest.fn(),
+    signAccessToken: jest.fn(),
+    signRefreshToken: jest.fn(),
+    setAuthCookies: jest.fn(),
+    clearAuthCookies: jest.fn(),
+  };
+  const sessionsService = {
+    withTransaction: jest.fn(),
+    isValid: jest.fn(),
+    create: jest.fn(),
+    revokeById: jest.fn(),
+  };
+  const identitiesService = {
+    upsertPassword: jest.fn(),
+    comparePassword: jest.fn(),
+    touchPasswordLogin: jest.fn(),
+    upsertSso: jest.fn(),
+  };
+  const passwordTokenService = {
+    verify: jest.fn(),
+    issue: jest.fn(),
+    revokeAllForUser: jest.fn(),
+    consume: jest.fn(),
+  };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
-        {
-          provide: UsersService,
-          useValue: { save: jest.fn(), findOne: jest.fn() },
-        },
-        { provide: JwtService, useValue: { signAsync: jest.fn() } },
-        { provide: AuthService, useValue: { userId: jest.fn() } },
-        { provide: RolesService, useValue: { findOne: jest.fn() } },
+        { provide: UsersService, useValue: usersService },
+        { provide: RolesService, useValue: rolesService },
+        { provide: AuthService, useValue: authService },
+        { provide: SessionsService, useValue: sessionsService },
+        { provide: AuthIdentitiesService, useValue: identitiesService },
+        { provide: PasswordTokenService, useValue: passwordTokenService },
+        { provide: JwtService, useValue: { verifyAsync: jest.fn() } },
+        { provide: MailService, useValue: { sendReset: jest.fn() } },
+        { provide: DevicesService, useValue: { upsertByInstance: jest.fn() } },
       ],
     }).compile();
 
-    controller = module.get<AuthController>(AuthController);
-    usersService = module.get(UsersService);
-    jwtService = module.get(JwtService);
-    authService = module.get(AuthService);
-    rolesService = module.get(RolesService);
+    controller = module.get(AuthController);
   });
 
-  it('should register a new user with hashed password and regular role', async () => {
+  it('registers a user and creates its password identity', async () => {
     const dto = {
       firstName: 'Gustavo',
       lastName: 'Olmedo',
@@ -48,27 +73,24 @@ describe('AuthController', () => {
       password: 'pass123',
       passwordConfirm: 'pass123',
     };
-
-    const role = { id: 'role-id', name: 'regular' };
     const savedUser = { id: 'user-id', ...dto };
+    rolesService.findOne.mockResolvedValue({ id: 'role-id' });
+    usersService.save.mockResolvedValue(savedUser);
 
-    (rolesService.findOne as jest.Mock).mockResolvedValue(role);
-    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed-password');
-    (usersService.save as jest.Mock).mockResolvedValue(savedUser);
-
-    const result = await controller.register(dto);
-
-    expect(result).toEqual(savedUser);
-    expect(usersService.save).toHaveBeenCalledWith(
-      expect.objectContaining({
-        firstName: dto.firstName,
-        password: 'hashed-password',
-        role: { id: role.id },
-      }),
+    await expect(controller.register(dto)).resolves.toEqual(savedUser);
+    expect(usersService.save).toHaveBeenCalledWith({
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      email: dto.email,
+      role: { id: 'role-id' },
+    });
+    expect(identitiesService.upsertPassword).toHaveBeenCalledWith(
+      savedUser,
+      dto.password,
     );
   });
 
-  it('should throw error if passwords do not match', async () => {
+  it('rejects registration when passwords do not match', async () => {
     await expect(
       controller.register({
         firstName: 'Gustavo',
@@ -80,60 +102,100 @@ describe('AuthController', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should login and set cookie if credentials are valid', async () => {
-    const user = {
-      id: 'user-id',
-      email: 'golmedo@mail.com',
-      password: 'hashed',
+  it('logs in, creates a session, and sets both auth cookies', async () => {
+    const user = { id: 'user-id', email: 'golmedo@mail.com' };
+    const request = {
+      ip: '127.0.0.1',
+      headers: { 'user-agent': 'jest' },
+    } as unknown as Request;
+    const response = {} as Response;
+    const sessionRepository = {
+      create: jest.fn().mockReturnValue({ user }),
+      save: jest.fn().mockResolvedValue({ id: 'session-id' }),
+      update: jest.fn().mockResolvedValue(undefined),
     };
-    const mockRes: any = { cookie: jest.fn() };
-
-    (usersService.findOne as jest.Mock).mockResolvedValue(user);
-    (bcrypt.compare as jest.Mock).mockResolvedValue(true);
-    (jwtService.signAsync as jest.Mock).mockResolvedValue('jwt-token');
-
-    const result = await controller.login(user.email, 'plaintext', mockRes);
-
-    expect(mockRes.cookie).toHaveBeenCalledWith('jwt', 'jwt-token', {
-      httpOnly: true,
-    });
-    expect(result).toEqual(user);
-  });
-
-  it('should throw NotFound if user not found during login', async () => {
-    (usersService.findOne as jest.Mock).mockResolvedValue(undefined);
+    usersService.findOne.mockResolvedValue(user);
+    identitiesService.comparePassword.mockResolvedValue(true);
+    (bcrypt.hash as jest.Mock).mockResolvedValue('hashed');
+    authService.signAccessToken.mockResolvedValue('access-token');
+    authService.signRefreshToken.mockResolvedValue('refresh-token');
+    sessionsService.withTransaction.mockImplementation((callback) =>
+      callback(sessionRepository),
+    );
 
     await expect(
-      controller.login('notfound@mail.com', 'any', {} as any),
+      controller.login(
+        { email: user.email, password: 'plaintext' },
+        request,
+        response,
+      ),
+    ).resolves.toEqual({ user, accessToken: 'access-token' });
+    expect(identitiesService.comparePassword).toHaveBeenCalledWith(
+      user,
+      'plaintext',
+    );
+    expect(identitiesService.touchPasswordLogin).toHaveBeenCalledWith(
+      user,
+      'plaintext',
+    );
+    expect(authService.setAuthCookies).toHaveBeenCalledWith(
+      response,
+      'access-token',
+      'refresh-token',
+    );
+  });
+
+  it('throws NotFoundException when the login user does not exist', async () => {
+    usersService.findOne.mockResolvedValue(null);
+
+    await expect(
+      controller.login(
+        { email: 'missing@mail.com', password: 'any' },
+        {} as Request,
+        {} as Response,
+      ),
     ).rejects.toThrow(NotFoundException);
   });
 
-  it('should throw BadRequest if password is incorrect', async () => {
-    const user = { id: 'id', password: 'hashed' };
-    (usersService.findOne as jest.Mock).mockResolvedValue(user);
-    (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+  it('throws BadRequestException for an incorrect password', async () => {
+    usersService.findOne.mockResolvedValue({ id: 'user-id' });
+    identitiesService.comparePassword.mockResolvedValue(false);
 
     await expect(
-      controller.login('email@mail.com', 'wrong', {} as any),
+      controller.login(
+        { email: 'email@mail.com', password: 'wrong' },
+        {} as Request,
+        {} as Response,
+      ),
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('should return current user data using id from cookie', async () => {
-    const mockRequest: any = {};
-    const id = 'user-id';
-    const user = { id, email: 'user@mail.com' };
+  it('returns the current user', async () => {
+    const request = {} as Request;
+    const user = { id: 'user-id', email: 'user@mail.com' };
+    authService.getUserId.mockResolvedValue('user-id');
+    usersService.findOne.mockResolvedValue(user);
 
-    (authService.userId as jest.Mock).mockResolvedValue(id);
-    (usersService.findOne as jest.Mock).mockResolvedValue(user);
-
-    const result = await controller.user(mockRequest);
-    expect(result).toEqual(user);
+    await expect(controller.me(request)).resolves.toEqual(user);
+    expect(usersService.findOne).toHaveBeenCalledWith({ id: 'user-id' }, [
+      'role',
+    ]);
   });
 
-  it('should clear cookie on logout', async () => {
-    const mockRes: any = { clearCookie: jest.fn() };
-    const result = await controller.logout(mockRes);
-    expect(mockRes.clearCookie).toHaveBeenCalledWith('jwt');
-    expect(result).toEqual({ message: 'Success' });
+  it('revokes the refresh session and clears cookies on logout', async () => {
+    const jwtService = controller['jwtService'] as unknown as {
+      verifyAsync: jest.Mock;
+    };
+    jwtService.verifyAsync.mockResolvedValue({ sid: 'session-id' });
+    const request = {
+      cookies: { refresh_token: 'refresh-token' },
+    } as unknown as Request;
+    const response = {} as Response;
+
+    await expect(controller.logout(request, response)).resolves.toEqual({
+      message: 'Success',
+    });
+    expect(sessionsService.revokeById).toHaveBeenCalledWith('session-id');
+    expect(authService.clearAuthCookies).toHaveBeenCalledWith(response);
   });
 });
