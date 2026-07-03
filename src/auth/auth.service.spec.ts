@@ -1,57 +1,81 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { AuthService } from './auth.service';
 import { Request } from 'express';
+import { AuthService } from './auth.service';
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let jwtService: JwtService;
+  let jwtService: jest.Mocked<Pick<JwtService, 'verifyAsync'>>;
 
   beforeEach(() => {
-    jwtService = {
-      verifyAsync: jest.fn(),
-    } as unknown as JwtService;
-
-    authService = new AuthService(jwtService);
+    process.env.AUTH_COOKIE_NAME = 'access_token';
+    jwtService = { verifyAsync: jest.fn() };
+    authService = new AuthService(jwtService as unknown as JwtService);
   });
 
-  it('should return Id from valid jwt cookie', async () => {
-    const mockId = '1234-id';
-    const mockCookie = 'valid.jwt.token';
-    const mockRequest = {
-      cookies: {
-        jwt: mockCookie,
-      },
+  it('returns the subject from a valid access-token cookie', async () => {
+    const request = {
+      cookies: { access_token: 'valid.jwt.token' },
+      headers: {},
     } as unknown as Request;
+    jwtService.verifyAsync.mockResolvedValue({
+      sub: '1234-id',
+      sid: 'session-id',
+      typ: 'access_token',
+    });
 
-    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ id: mockId });
-
-    const result = await authService.userId(mockRequest);
-    expect(result).toBe(mockId);
-    expect(jwtService.verifyAsync).toHaveBeenCalledWith(mockCookie);
+    await expect(authService.getUserId(request)).resolves.toBe('1234-id');
+    expect(jwtService.verifyAsync).toHaveBeenCalledWith('valid.jwt.token');
   });
 
-  it('should throw ForbiddenException if jwt cookie is missing', async () => {
-    const mockRequest = {
+  it('accepts a bearer token when the cookie is absent', async () => {
+    const request = {
       cookies: {},
-    } as Request;
+      headers: { authorization: 'Bearer bearer.jwt.token' },
+    } as unknown as Request;
+    jwtService.verifyAsync.mockResolvedValue({
+      sub: 'user-id',
+      sid: 'session-id',
+      typ: 'access_token',
+    });
 
-    await expect(authService.userId(mockRequest)).rejects.toThrow(
+    await expect(authService.getUserId(request)).resolves.toBe('user-id');
+    expect(jwtService.verifyAsync).toHaveBeenCalledWith('bearer.jwt.token');
+  });
+
+  it('throws UnauthorizedException when credentials are missing', async () => {
+    const request = { cookies: {}, headers: {} } as unknown as Request;
+
+    await expect(authService.getUserId(request)).rejects.toThrow(
+      UnauthorizedException,
+    );
+  });
+
+  it('throws ForbiddenException when the token is invalid', async () => {
+    const request = {
+      cookies: { access_token: 'invalid.token' },
+      headers: {},
+    } as unknown as Request;
+    jwtService.verifyAsync.mockRejectedValue(new Error('Invalid token'));
+
+    await expect(authService.getUserId(request)).rejects.toThrow(
       ForbiddenException,
     );
   });
 
-  it('should throw if jwt is invalid', async () => {
-    const mockRequest = {
-      cookies: {
-        jwt: 'invalid.token',
-      },
+  it('throws ForbiddenException for a non-access token', async () => {
+    const request = {
+      cookies: { access_token: 'refresh.token' },
+      headers: {},
     } as unknown as Request;
+    jwtService.verifyAsync.mockResolvedValue({
+      sub: 'user-id',
+      sid: 'session-id',
+      typ: 'refresh_token',
+    });
 
-    (jwtService.verifyAsync as jest.Mock).mockRejectedValue(
-      new Error('Invalid token'),
+    await expect(authService.getUserId(request)).rejects.toThrow(
+      ForbiddenException,
     );
-
-    await expect(authService.userId(mockRequest)).rejects.toThrow();
   });
 });
