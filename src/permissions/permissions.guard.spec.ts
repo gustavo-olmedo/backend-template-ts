@@ -1,142 +1,110 @@
 import { ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PermissionsGuard } from './permissions.guard';
 import { AuthService } from '../auth/auth.service';
-import { UsersService } from '../users/users.service';
+import { Role } from '../roles/models/role.entity';
 import { RolesService } from '../roles/roles.service';
+import { User } from '../users/models/user.entity';
+import { UsersService } from '../users/users.service';
+import { PermissionsGuard } from './permissions.guard';
 
 describe('PermissionsGuard', () => {
   let guard: PermissionsGuard;
-  let reflector: jest.Mocked<Reflector>;
-  let authService: jest.Mocked<AuthService>;
-  let usersService: jest.Mocked<UsersService>;
-  let rolesService: jest.Mocked<RolesService>;
+  let reflector: jest.Mocked<Pick<Reflector, 'get'>>;
+  let authService: jest.Mocked<Pick<AuthService, 'getUserId'>>;
+  let usersService: jest.Mocked<Pick<UsersService, 'findOne'>>;
+  let rolesService: jest.Mocked<Pick<RolesService, 'findOne'>>;
 
-  const mockContext = (
-    method: string = 'GET',
-    access?: string,
-  ): ExecutionContext => {
-    const req: any = { method, cookies: { jwt: 'token' } };
-    return {
-      switchToHttp: () => ({ getRequest: () => req }),
+  const role = (permissions: Role['permissions'] = []): Role => ({
+    id: 'role-id',
+    name: 'role-name',
+    isActive: true,
+    isSystem: false,
+    permissions,
+  });
+
+  const user = (): User => ({
+    id: 'user-id',
+    email: 'test@example.com',
+    firstName: 'Gustavo',
+    lastName: 'Olmedo',
+    identities: [],
+    role: role(),
+  });
+
+  const context = (method = 'GET'): ExecutionContext =>
+    ({
+      switchToHttp: () => ({ getRequest: () => ({ method }) }),
       getHandler: () => ({}),
-    } as any;
-  };
+    }) as ExecutionContext;
 
   beforeEach(() => {
-    reflector = { get: jest.fn() } as any;
-    authService = { userId: jest.fn() } as any;
-    usersService = { findOne: jest.fn() } as any;
-    rolesService = { findOne: jest.fn() } as any;
-
+    reflector = { get: jest.fn() };
+    authService = { getUserId: jest.fn() };
+    usersService = { findOne: jest.fn() };
+    rolesService = { findOne: jest.fn() };
     guard = new PermissionsGuard(
-      reflector,
-      authService,
-      usersService,
-      rolesService,
+      reflector as unknown as Reflector,
+      authService as unknown as AuthService,
+      usersService as unknown as UsersService,
+      rolesService as unknown as RolesService,
     );
   });
 
-  it('should allow access if no access metadata is defined', async () => {
+  it('allows routes without access metadata', async () => {
     reflector.get.mockReturnValue(undefined);
-    const result = await guard.canActivate(mockContext());
-    expect(result).toBe(true);
+
+    await expect(guard.canActivate(context())).resolves.toBe(true);
+    expect(authService.getUserId).not.toHaveBeenCalled();
   });
 
-  it('should deny access if user not found', async () => {
+  it('denies access when the user is not found', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userId.mockResolvedValue('id');
+    authService.getUserId.mockResolvedValue('user-id');
     usersService.findOne.mockResolvedValue(null);
 
-    const result = await guard.canActivate(mockContext());
-    expect(result).toBe(false);
+    await expect(guard.canActivate(context())).resolves.toBe(false);
   });
 
-  it('should deny access if role not found', async () => {
+  it('denies access when the role is not found', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userId.mockResolvedValue('id');
-    usersService.findOne.mockResolvedValue({
-      id: '1',
-      email: 'test@example.com',
-      password: 'secret',
-      firstName: 'gustavo',
-      lastName: 'olmedo',
-      role: {
-        id: 'role-id',
-        name: 'role-name',
-        permissions: [],
-      },
-    });
+    authService.getUserId.mockResolvedValue('user-id');
+    usersService.findOne.mockResolvedValue(user());
     rolesService.findOne.mockResolvedValue(null);
 
-    const result = await guard.canActivate(mockContext());
-    expect(result).toBe(false);
+    await expect(guard.canActivate(context())).resolves.toBe(false);
   });
 
-  it('should allow access for GET if role has view or edit permission', async () => {
-    reflector.get.mockReturnValue('users');
-    authService.userId.mockResolvedValue('id');
-    usersService.findOne.mockResolvedValue({
-      id: '1',
-      email: 'test@example.com',
-      password: 'secret',
-      firstName: 'gustavo',
-      lastName: 'olmedo',
-      role: {
-        id: 'role-id',
-        name: 'role-name',
-        permissions: [],
-      },
-    });
-    rolesService.findOne.mockResolvedValue({
-      id: 'role-id',
-      name: 'role-name',
-      permissions: [{ id: 'permission-id', name: 'view_users' }],
-    });
+  it.each(['view_users', 'edit_users'])(
+    'allows GET with %s permission',
+    async (permissionName) => {
+      reflector.get.mockReturnValue('users');
+      authService.getUserId.mockResolvedValue('user-id');
+      usersService.findOne.mockResolvedValue(user());
+      rolesService.findOne.mockResolvedValue(
+        role([{ id: 'permission-id', name: permissionName }]),
+      );
 
-    const result = await guard.canActivate(mockContext('GET'));
-    expect(result).toBe(true);
+      await expect(guard.canActivate(context('GET'))).resolves.toBe(true);
+    },
+  );
+
+  it('allows writes only with edit permission', async () => {
+    reflector.get.mockReturnValue('users');
+    authService.getUserId.mockResolvedValue('user-id');
+    usersService.findOne.mockResolvedValue(user());
+    rolesService.findOne.mockResolvedValue(
+      role([{ id: 'permission-id', name: 'edit_users' }]),
+    );
+
+    await expect(guard.canActivate(context('POST'))).resolves.toBe(true);
   });
 
-  it('should allow access for non-GET if role has edit permission', async () => {
+  it('denies access without a matching permission', async () => {
     reflector.get.mockReturnValue('users');
-    authService.userId.mockResolvedValue('id');
-    usersService.findOne.mockResolvedValue({
-      id: '1',
-      email: 'test@example.com',
-      password: 'secret',
-      firstName: 'gustavo',
-      lastName: 'olmedo',
-      role: { id: 'role-id', name: 'role-name', permissions: [] },
-    });
-    rolesService.findOne.mockResolvedValue({
-      id: 'role-id',
-      name: 'role-name',
-      permissions: [{ id: 'permission-id', name: 'edit_users' }],
-    });
+    authService.getUserId.mockResolvedValue('user-id');
+    usersService.findOne.mockResolvedValue(user());
+    rolesService.findOne.mockResolvedValue(role());
 
-    const result = await guard.canActivate(mockContext('POST'));
-    expect(result).toBe(true);
-  });
-
-  it('should deny access if role has no matching permissions', async () => {
-    reflector.get.mockReturnValue('users');
-    authService.userId.mockResolvedValue('id');
-    usersService.findOne.mockResolvedValue({
-      id: '1',
-      email: 'test@example.com',
-      password: 'secret',
-      firstName: 'gustavo',
-      lastName: 'olmedo',
-      role: { id: 'role-id', name: 'role-name', permissions: [] },
-    });
-    rolesService.findOne.mockResolvedValue({
-      id: 'role-id',
-      name: 'role-name',
-      permissions: [],
-    });
-
-    const result = await guard.canActivate(mockContext('DELETE'));
-    expect(result).toBe(false);
+    await expect(guard.canActivate(context('DELETE'))).resolves.toBe(false);
   });
 });
