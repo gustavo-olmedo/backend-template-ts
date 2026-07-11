@@ -44,8 +44,10 @@ describe('RolesController', () => {
     rolesService.all.mockResolvedValue(roles);
 
     const result = await controller.all();
-    expect(result).toEqual(roles);
-    expect(rolesService.all).toHaveBeenCalled();
+    expect(result).toEqual([{ id: '1', name: 'admin', permissions: [] }]);
+    expect(rolesService.all).toHaveBeenCalledWith({
+      relations: ['permissions'],
+    });
   });
 
   it('should create a role with permissions', async () => {
@@ -120,9 +122,21 @@ describe('RolesController', () => {
   });
 
   it('should delete a role', async () => {
-    rolesService.delete.mockResolvedValue({ affected: 1 });
+    const role = {
+      id: 'r1',
+      name: 'custom',
+      permissions: [],
+      isActive: true,
+      isSystem: false,
+    };
+    rolesService.findOne.mockResolvedValue(role);
+    rolesService.save.mockResolvedValue({ ...role, isActive: false });
+
     const result = await controller.delete('r1');
-    expect(result).toEqual({ affected: 1 });
-    expect(rolesService.delete).toHaveBeenCalledWith('r1');
+    expect(result).toEqual({ ...role, isActive: false });
+    expect(rolesService.save).toHaveBeenCalledWith({
+      ...role,
+      isActive: false,
+    });
   });
 });

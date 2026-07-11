@@ -3,7 +3,6 @@ import { RolesService } from './roles.service';
 import { Role } from './models/role.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { permission } from 'process';
 
 describe('RolesService', () => {
   let service: RolesService;
@@ -36,7 +35,15 @@ describe('RolesService', () => {
   });
 
   it('should find all roles', async () => {
-    const roles = [{ id: '1', name: 'Admin', permissions: [] }];
+    const roles: Role[] = [
+      {
+        id: '1',
+        name: 'Admin',
+        isActive: true,
+        isSystem: true,
+        permissions: [],
+      },
+    ];
     repo.find.mockResolvedValue(roles);
 
     const result = await service.all();
@@ -48,7 +55,13 @@ describe('RolesService', () => {
   });
 
   it('should find one role by condition', async () => {
-    const role = { id: '1', name: 'User', permissions: [] };
+    const role: Role = {
+      id: '1',
+      name: 'User',
+      isActive: true,
+      isSystem: false,
+      permissions: [],
+    };
     repo.findOne.mockResolvedValue(role);
 
     const result = await service.findOne({ id: '1' });
@@ -61,10 +74,22 @@ describe('RolesService', () => {
 
   it('should create/save a role', async () => {
     const role = { name: 'Editor' };
-    repo.save.mockResolvedValue({ ...role, id: '2', permissions: [] });
+    repo.save.mockResolvedValue({
+      ...role,
+      id: '2',
+      isActive: true,
+      isSystem: false,
+      permissions: [],
+    });
 
     const result = await service.save(role);
-    expect(result).toEqual({ ...role, id: '2', permissions: [] });
+    expect(result).toEqual({
+      ...role,
+      id: '2',
+      isActive: true,
+      isSystem: false,
+      permissions: [],
+    });
     expect(repo.save).toHaveBeenCalledWith(role);
   });
 
