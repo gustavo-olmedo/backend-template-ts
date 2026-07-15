@@ -63,7 +63,7 @@ describe('AbstractService', () => {
     expect(result.data).toEqual(entities);
     expect(result.meta).toEqual({ total: 1, page: 1, lastPage: 1 });
     expect(repo.findAndCount).toHaveBeenCalledWith({
-      take: 15,
+      take: 7,
       skip: 0,
       relations: undefined,
     });
