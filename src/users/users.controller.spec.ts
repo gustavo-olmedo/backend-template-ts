@@ -8,6 +8,11 @@ import { UserCreateDto } from './dtos/user-create.dto';
 import { UserUpdateDto } from './dtos/user-update.dto';
 import { SharedModule } from '../shared/shared.module';
 import { UserUpdateInfoDto } from './dtos/user-update-info.dto';
+import { FILE_STORAGE } from '../file-storage/file-storage.module';
+import { PasswordTokenService } from '../auth/password-token.service';
+import { MailService } from '../mail/mail.service';
+import { AuthIdentitiesService } from '../auth/auth-identities.service';
+import { AuthGuard } from '../auth/auth/auth.guard';
 
 const mockUsersService = {
   paginate: jest.fn(),
@@ -18,8 +23,12 @@ const mockUsersService = {
 };
 
 const mockAuthService = {
-  userId: jest.fn(),
+  getUserId: jest.fn(),
 };
+
+const mockPasswordTokenService = { issue: jest.fn() };
+const mockMailService = { sendInvite: jest.fn() };
+const mockAuthIdentitiesService = { upsertPassword: jest.fn() };
 
 describe('UsersController', () => {
   let controller: UsersController;
@@ -31,10 +40,24 @@ describe('UsersController', () => {
       providers: [
         { provide: UsersService, useValue: mockUsersService },
         { provide: AuthService, useValue: mockAuthService },
+        { provide: FILE_STORAGE, useValue: {} },
+        {
+          provide: PasswordTokenService,
+          useValue: mockPasswordTokenService,
+        },
+        { provide: MailService, useValue: mockMailService },
+        {
+          provide: AuthIdentitiesService,
+          useValue: mockAuthIdentitiesService,
+        },
       ],
-    }).compile();
+    })
+      .overrideGuard(AuthGuard)
+      .useValue({ canActivate: () => true })
+      .compile();
 
     controller = module.get<UsersController>(UsersController);
+    jest.clearAllMocks();
   });
 
   it('should fetch paginated users', async () => {
@@ -44,7 +67,7 @@ describe('UsersController', () => {
     expect(mockUsersService.paginate).toHaveBeenCalledWith(1, ['role']);
   });
 
-  it('should create a user with hashed password', async () => {
+  it('should create a user and send an invitation', async () => {
     const dto: UserCreateDto = {
       firstName: 'Gustavo',
       lastName: 'Olmedo',
@@ -53,6 +76,7 @@ describe('UsersController', () => {
     };
 
     mockUsersService.save.mockResolvedValue({ id: 'user-id', ...dto });
+    mockPasswordTokenService.issue.mockResolvedValue('invite-token');
 
     const result = await controller.create(dto);
 
@@ -64,6 +88,11 @@ describe('UsersController', () => {
         role: { id: dto.roleId },
       }),
     );
+    expect(mockPasswordTokenService.issue).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'user-id' }),
+      'invite',
+    );
+    expect(mockMailService.sendInvite).toHaveBeenCalled();
     expect(result.id).toEqual('user-id');
   });
 
@@ -84,7 +113,7 @@ describe('UsersController', () => {
       email: 'updated@mail.com',
     };
 
-    mockAuthService.userId.mockResolvedValue('user-id');
+    mockAuthService.getUserId.mockResolvedValue('user-id');
     mockUsersService.update.mockResolvedValue(undefined);
     mockUsersService.findOne.mockResolvedValue({ id: 'user-id', ...dto });
 
@@ -100,17 +129,17 @@ describe('UsersController', () => {
 
   it('should update password if match', async () => {
     const id = 'user-id';
-    mockAuthService.userId.mockResolvedValue(id);
-    mockUsersService.update.mockResolvedValue(undefined);
-    mockUsersService.findOne.mockResolvedValue({ id });
+    const user = { id };
+    mockAuthService.getUserId.mockResolvedValue(id);
+    mockUsersService.findOne.mockResolvedValue(user);
 
     const result = await controller.updatePassword({}, 'pass123', 'pass123');
 
-    expect(mockUsersService.update).toHaveBeenCalledWith(
-      id,
-      expect.objectContaining({ password: expect.any(String) }),
+    expect(mockAuthIdentitiesService.upsertPassword).toHaveBeenCalledWith(
+      user,
+      'pass123',
     );
-    expect(result).toEqual({ id });
+    expect(result).toEqual(user);
   });
 
   it('should update a user by id', async () => {

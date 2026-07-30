@@ -24,9 +24,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { MulterOptions } from '@nestjs/platform-express/multer/interfaces/multer-options.interface';
 import { Throttle } from '@nestjs/throttler';
 import { memoryStorage } from 'multer';
-import * as bcrypt from 'bcryptjs';
 import sharp from 'sharp';
-import { fileTypeFromBuffer } from 'file-type';
 
 // Services
 import { UsersService } from './users.service';
@@ -49,6 +47,15 @@ import { FILE_STORAGE } from '../file-storage/file-storage.module';
 
 // Multer memory + basic filter (validators still run afterwards)
 const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+// `file-type` is ESM-only while this project is compiled as CommonJS. Keeping
+// the native dynamic import prevents TypeScript from emitting `require()`,
+// which Jest 29 and Node 20 cannot resolve for this package.
+// eslint-disable-next-line @typescript-eslint/no-implied-eval
+const loadFileType = new Function(
+  'return import("file-type")',
+) as () => Promise<typeof import('file-type')>;
+
 const multerMemory: MulterOptions = {
   storage: memoryStorage(),
   fileFilter: (_req, file, callback) => {
@@ -135,11 +142,7 @@ export class UsersController {
     const user = await this.usersService.findOne({ id });
     if (!user) throw new NotFoundException('User not found');
 
-    const hashedPassword = await bcrypt.hash(
-      password,
-      Number(process.env.BCRYPT_COST) || 12,
-    );
-    await this.authIdentitiesService.upsertPassword(user, hashedPassword);
+    await this.authIdentitiesService.upsertPassword(user, password);
     return user;
   }
 
@@ -180,6 +183,7 @@ export class UsersController {
     if (!file) throw new BadRequestException('No file uploaded');
 
     // Magic-number sniffing
+    const { fileTypeFromBuffer } = await loadFileType();
     const ft = await fileTypeFromBuffer(file.buffer);
     if (!ft || !allowedMimes.includes(ft.mime)) {
       throw new BadRequestException('Unsupported or invalid image file.');
