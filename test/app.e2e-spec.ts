@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import request from 'supertest';
-import * as bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 
 import { AppModule } from '../src/app.module';
@@ -9,6 +8,8 @@ import { UsersService } from '../src/users/users.service';
 import { RolesService } from '../src/roles/roles.service';
 import { PermissionsService } from '../src/permissions/permissions.service';
 import { Permission } from '../src/permissions/models/permission.entity';
+import { AuthIdentitiesService } from '../src/auth/auth-identities.service';
+import { MailService } from '../src/mail/mail.service';
 
 jest.setTimeout(30000);
 
@@ -16,6 +17,7 @@ async function runSeed(app: INestApplication) {
   const usersService = app.get(UsersService);
   const permissionsService = app.get(PermissionsService);
   const rolesService = app.get(RolesService);
+  const authIdentitiesService = app.get(AuthIdentitiesService);
 
   const permissionNames = [
     'view_users',
@@ -56,17 +58,15 @@ async function runSeed(app: INestApplication) {
   if (!adminUser) {
     const adminRole = await rolesService.findOne({ name: 'admin' });
 
-    const password = await bcrypt.hash(
-      'admin',
-      Number(process.env.BCRYPT_COST) || 12,
-    );
-    await usersService.save({
+    const user = await usersService.save({
       firstName: 'admin',
       lastName: 'admin',
       email: 'admin@mail.com',
-      password,
       role: { id: adminRole?.id },
     });
+    await authIdentitiesService.upsertPassword(user, 'admin');
+  } else {
+    await authIdentitiesService.upsertPassword(adminUser, 'admin');
   }
 }
 
@@ -81,20 +81,24 @@ async function cleanUpSeed(app: INestApplication) {
 
   const rolesToDelete = ['admin', 'regular'];
   for (const name of rolesToDelete) {
-    let role = await rolesService.findOne({ name }, ['permissions']);
+    const role = await rolesService.findOne({ name }, ['permissions']);
     if (role) await rolesService.delete(role.id);
   }
 }
 
 let app: INestApplication;
-let jwtCookie: string | undefined;
+let accessCookie: string | undefined;
 let createdUserId: string;
 let createdRoleId: string;
+let permissionIds: string[];
 
 beforeAll(async () => {
   const moduleFixture: TestingModule = await Test.createTestingModule({
     imports: [AppModule],
-  }).compile();
+  })
+    .overrideProvider(MailService)
+    .useValue({ sendInvite: jest.fn(), sendReset: jest.fn() })
+    .compile();
 
   app = moduleFixture.createNestApplication();
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
@@ -125,21 +129,23 @@ describe('Auth', () => {
 
     const cookies = res.get('Set-Cookie');
     expect(cookies).toBeDefined();
-    jwtCookie = cookies?.find((cookie: string) => cookie.startsWith('jwt='));
-    expect(jwtCookie).toBeDefined();
+    accessCookie = cookies?.find((cookie: string) =>
+      cookie.startsWith('access_token='),
+    );
+    expect(accessCookie).toBeDefined();
   });
 
   it('should get current user info', async () => {
     await request(app.getHttpServer())
       .get('/api/user')
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
   });
 
   it('should logout successfully', async () => {
     await request(app.getHttpServer())
       .post('/api/logout')
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(201);
   });
 });
@@ -150,28 +156,31 @@ describe('Roles & Permissions', () => {
       .post('/api/login')
       .send({ email: 'admin@mail.com', password: 'admin' });
 
-    jwtCookie = res
+    accessCookie = res
       .get('Set-Cookie')
-      ?.find((cookie: string) => cookie.startsWith('jwt='));
-    expect(jwtCookie).toBeDefined();
+      ?.find((cookie: string) => cookie.startsWith('access_token='));
+    expect(accessCookie).toBeDefined();
   });
 
   it('should fetch permissions list', async () => {
     const res = await request(app.getHttpServer())
       .get('/api/permissions')
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
 
     expect(Array.isArray(res.body)).toBe(true);
+    permissionIds = (res.body as Permission[]).map((permission) =>
+      String(permission.id),
+    );
   });
 
   it('should create a role with permissions', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/roles')
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .send({
         name: 'test-role',
-        permissions: [],
+        permissionIds,
       })
       .expect(201);
 
@@ -181,22 +190,22 @@ describe('Roles & Permissions', () => {
   it('should update a role', async () => {
     await request(app.getHttpServer())
       .put(`/api/roles/${createdRoleId}`)
-      .set('Cookie', jwtCookie!)
-      .send({ name: 'updated-role', permissions: [] })
+      .set('Cookie', accessCookie!)
+      .send({ name: 'updated-role', permissionIds })
       .expect(200);
   });
 
   it('should fetch role by id', async () => {
     await request(app.getHttpServer())
       .get(`/api/roles/${createdRoleId}`)
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
   });
 
   it('should delete the role', async () => {
     await request(app.getHttpServer())
       .delete(`/api/roles/${createdRoleId}`)
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
   });
 });
@@ -213,13 +222,11 @@ describe('Users', () => {
   it('should create a new user', async () => {
     const res = await request(app.getHttpServer())
       .post('/api/users')
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .send({
         firstName: 'Gustavo',
         lastName: 'Olmedo',
         email: 'testuser@mail.com',
-        password: 'Password123',
-        passwordConfirm: 'Password123',
         roleId: roleAdminId,
       })
       .expect(201);
@@ -230,21 +237,21 @@ describe('Users', () => {
   it('should fetch all users', async () => {
     await request(app.getHttpServer())
       .get('/api/users')
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
   });
 
   it('should get user by id', async () => {
     await request(app.getHttpServer())
       .get(`/api/users/${createdUserId}`)
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
   });
 
   it('should update user by id', async () => {
     await request(app.getHttpServer())
       .put(`/api/users/${createdUserId}`)
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .send({
         firstName: 'Updated',
         lastName: 'User',
@@ -256,21 +263,20 @@ describe('Users', () => {
 
   it('should update logged in user info', async () => {
     await request(app.getHttpServer())
-      .put('/api/users/info')
-      .set('Cookie', jwtCookie!)
+      .patch('/api/users/info')
+      .set('Cookie', accessCookie!)
       .send({
         firstName: 'Gustavo',
         lastName: 'Olmedo',
         email: 'admin@mail.com',
-        roleId: roleAdminId,
       })
       .expect(200);
   });
 
   it('should update logged in user password', async () => {
     await request(app.getHttpServer())
-      .put('/api/users/password')
-      .set('Cookie', jwtCookie!)
+      .patch('/api/users/password')
+      .set('Cookie', accessCookie!)
       .send({
         password: 'admin',
         passwordConfirm: 'admin',
@@ -281,7 +287,7 @@ describe('Users', () => {
   it('should delete the user', async () => {
     await request(app.getHttpServer())
       .delete(`/api/users/${createdUserId}`)
-      .set('Cookie', jwtCookie!)
+      .set('Cookie', accessCookie!)
       .expect(200);
   });
 });
