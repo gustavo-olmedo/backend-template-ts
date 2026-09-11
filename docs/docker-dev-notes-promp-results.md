@@ -39,6 +39,7 @@ docker compose up --build
 **Yes.** Removing `./pgdata` completely resets Postgres.
 
 > If you ever switch to a **named** volume for Postgres (e.g., `pgdata:/var/lib/postgresql/data`), you’d drop it with:
+>
 > ```bash
 > docker compose down -v
 > docker volume rm <yourproject>_pgdata
@@ -63,6 +64,7 @@ docker compose exec db psql -U postgres -d postgres  -c 'ALTER DATABASE template
 ```
 
 Check current collation info:
+
 ```sql
 SELECT datname, datcollate, datctype, datcollversion FROM pg_database;
 ```
@@ -89,12 +91,15 @@ ENTRYPOINT ["/usr/bin/tini","--"]
 CMD ["yarn","start:dev"]
 ```
 
-**docker-compose.yml**: enable polling watchers.
+The current **docker-compose.yml** enables polling watchers and keeps
+dependencies in a named volume:
 
 ```yaml
 services:
   nest-backend:
-    command: yarn start:dev
+    command: >
+      sh -lc "yarn install --frozen-lockfile --check-files &&
+              yarn start:dev"
     environment:
       - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true
@@ -105,16 +110,16 @@ services:
       - .:/app
       - node_modules:/app/node_modules
     depends_on:
-      db:
-        condition: service_healthy
+      - db
 
   db:
-    image: postgres:16
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+    image: postgres:16-bookworm
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=app
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
 
 volumes:
   node_modules:
@@ -122,16 +127,18 @@ volumes:
 
 ---
 
-## 5) TypeORM setup tips
+## 5) TypeORM setup
 
-- Prefer:
+- The current project uses:
   ```ts
   TypeOrmModule.forRoot({
     // ...
-    autoLoadEntities: true,
-    synchronize: false,      // use migrations with non-empty DBs
+    autoLoadEntities: process.env.NODE_ENV !== 'production',
+    synchronize: true,
   });
   ```
+- `synchronize: true` is convenient for this template's development database,
+  but production deployments should use migrations and disable synchronization.
 - Register entities in feature modules: `TypeOrmModule.forFeature([User, Role, Permission, ...])`.
 - Keep imports consistent (avoid mixing `src/...` and relative paths for entities).
 
@@ -140,39 +147,30 @@ volumes:
 ## 6) Running the seeders
 
 **Files**:
+
 - `src/commands/permissions-roles.seeder.ts` – creates permissions/roles + ensures admin user and password identity.
 - `src/commands/users.seeder.ts` – adds 10 regular users with password identities.
 
-**Suggested scripts** (TypeScript dev):
+**Current scripts** (TypeScript):
 
 ```jsonc
 {
   "scripts": {
-    "seed:roles": "ts-node -r tsconfig-paths/register src/commands/permissions-roles.seeder.ts",
-    "seed:users": "ts-node -r tsconfig-paths/register src/commands/users.seeder.ts"
-  }
-}
-```
-
-**Or from compiled JS**:
-
-```jsonc
-{
-  "scripts": {
-    "build": "nest build",
-    "seed:roles": "node dist/commands/permissions-roles.seeder.js",
-    "seed:users": "node dist/commands/users.seeder.js"
-  }
+    "seed:permissions-roles": "ts-node src/commands/permissions-roles.seeder.ts --env-file .env",
+    "seed:users": "ts-node src/commands/users.seeder.ts --env-file .env",
+  },
 }
 ```
 
 **Run inside the container** (after `docker compose up`):
+
 ```bash
-docker compose exec nest-backend yarn seed:roles
+docker compose exec nest-backend yarn seed:permissions-roles
 docker compose exec nest-backend yarn seed:users
 ```
 
 **Env vars used by seeders**:
+
 - `DEFAULT_ADMIN_EMAIL` (default: `admin@mail.com`)
 - `DEFAULT_ADMIN_PASSWORD` (default: `ChangeMeNow!123`)
 - `DEMO_USER_PASSWORD` (default: `Password123!`)
@@ -183,23 +181,27 @@ docker compose exec nest-backend yarn seed:users
 ## 7) Handy Docker/DB commands
 
 Logs:
+
 ```bash
 docker compose logs -f nest-backend
 docker compose logs -f db
 ```
 
 Shells:
+
 ```bash
 docker compose exec nest-backend sh
 docker compose exec db bash   # or sh, depending on image
 ```
 
 psql prompt into your app DB:
+
 ```bash
 docker compose exec db psql -U postgres -d app
 ```
 
 Rebuild just the backend image:
+
 ```bash
 docker compose build nest-backend && docker compose up -d nest-backend
 ```
