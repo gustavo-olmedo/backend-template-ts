@@ -30,6 +30,7 @@ describe('AuthController', () => {
     withTransaction: jest.fn(),
     isValid: jest.fn(),
     create: jest.fn(),
+    rotate: jest.fn(),
     revokeById: jest.fn(),
   };
   const identitiesService = {
@@ -180,6 +181,42 @@ describe('AuthController', () => {
     expect(usersService.findOne).toHaveBeenCalledWith({ id: 'user-id' }, [
       'role',
     ]);
+  });
+
+  it('rotates refresh tokens on the existing session', async () => {
+    process.env.AUTH_REFRESH_COOKIE_NAME = 'refresh_token';
+    const jwtService = controller['jwtService'] as unknown as {
+      verifyAsync: jest.Mock;
+    };
+    const user = { id: 'user-id' };
+    const request = {
+      cookies: { refresh_token: 'old-refresh-token' },
+    } as unknown as Request;
+    const response = {} as Response;
+    jwtService.verifyAsync.mockResolvedValue({
+      sub: user.id,
+      sid: 'session-id',
+      typ: 'refresh_token',
+    });
+    sessionsService.isValid.mockResolvedValue(true);
+    usersService.findOne.mockResolvedValue(user);
+    authService.signAccessToken.mockResolvedValue('new-access-token');
+    authService.signRefreshToken.mockResolvedValue('new-refresh-token');
+
+    await expect(controller.refresh(request, response)).resolves.toEqual({
+      ok: true,
+    });
+    expect(sessionsService.rotate).toHaveBeenCalledWith(
+      'session-id',
+      'new-refresh-token',
+      30,
+    );
+    expect(authService.setAuthCookies).toHaveBeenCalledWith(
+      response,
+      'new-access-token',
+      'new-refresh-token',
+    );
+    expect(sessionsService.revokeById).not.toHaveBeenCalled();
   });
 
   it('revokes the refresh session and clears cookies on logout', async () => {

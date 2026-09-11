@@ -88,6 +88,7 @@ async function cleanUpSeed(app: INestApplication) {
 
 let app: INestApplication;
 let accessCookie: string | undefined;
+let refreshCookie: string | undefined;
 let createdUserId: string;
 let createdRoleId: string;
 let permissionIds: string[];
@@ -132,7 +133,29 @@ describe('Auth', () => {
     accessCookie = cookies?.find((cookie: string) =>
       cookie.startsWith('access_token='),
     );
+    refreshCookie = cookies?.find((cookie: string) =>
+      cookie.startsWith('refresh_token='),
+    );
     expect(accessCookie).toBeDefined();
+    expect(refreshCookie).toBeDefined();
+  });
+
+  it('should refresh the session and rotate auth cookies', async () => {
+    const res = await request(app.getHttpServer())
+      .post('/api/token/refresh')
+      .set('Cookie', refreshCookie!)
+      .expect(201);
+
+    const cookies = res.get('Set-Cookie');
+    accessCookie = cookies?.find((cookie: string) =>
+      cookie.startsWith('access_token='),
+    );
+    refreshCookie = cookies?.find((cookie: string) =>
+      cookie.startsWith('refresh_token='),
+    );
+    expect(res.body).toEqual({ ok: true });
+    expect(accessCookie).toBeDefined();
+    expect(refreshCookie).toBeDefined();
   });
 
   it('should get current user info', async () => {
@@ -145,7 +168,7 @@ describe('Auth', () => {
   it('should logout successfully', async () => {
     await request(app.getHttpServer())
       .post('/api/logout')
-      .set('Cookie', accessCookie!)
+      .set('Cookie', refreshCookie!)
       .expect(201);
   });
 });
@@ -159,6 +182,9 @@ describe('Roles & Permissions', () => {
     accessCookie = res
       .get('Set-Cookie')
       ?.find((cookie: string) => cookie.startsWith('access_token='));
+    refreshCookie = res
+      .get('Set-Cookie')
+      ?.find((cookie: string) => cookie.startsWith('refresh_token='));
     expect(accessCookie).toBeDefined();
   });
 
