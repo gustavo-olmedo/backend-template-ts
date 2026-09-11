@@ -161,7 +161,9 @@ export class AuthController {
       }
     })();
 
-    if (payload.typ !== 'refresh')
+    if (
+      payload.typ !== (process.env.AUTH_REFRESH_COOKIE_NAME ?? 'refresh_token')
+    )
       throw new BadRequestException('Invalid token type');
     const { sub: userId, sid: sessionId } = payload;
 
@@ -177,9 +179,8 @@ export class AuthController {
     const newAccess = await this.authService.signAccessToken(user, sessionId);
     const newRefresh = await this.authService.signRefreshToken(user, sessionId);
 
-    // Actualiza hash guardado para prevenir reuso (opcional: crear endpoint en SessionsService)
-    await this.sessionsService.create(user, newRefresh, 30); // crea nueva y revoca la anterior
-    await this.sessionsService.revokeById(sessionId);
+    // Rotate the stored hash while preserving the sid embedded in both tokens.
+    await this.sessionsService.rotate(sessionId, newRefresh, 30);
 
     this.authService.setAuthCookies(res, newAccess, newRefresh);
     return { ok: true };

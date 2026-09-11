@@ -44,6 +44,18 @@ export class SessionsService extends AbstractService<Session> {
     );
   }
 
+  async rotate(sessionId: string, refreshToken: string, ttlDays = 30) {
+    const refreshTokenHash = await bcrypt.hash(
+      refreshToken,
+      Number(process.env.BCRYPT_COST) || 12,
+    );
+    const expiresAt = new Date(Date.now() + ttlDays * 24 * 60 * 60 * 1000);
+    await this.sessionRepository.update(
+      { id: sessionId },
+      { refreshTokenHash, expiresAt },
+    );
+  }
+
   async isValid(sessionId: string, refreshToken: string) {
     const s = await this.sessionRepository.findOne({
       where: { id: sessionId },
