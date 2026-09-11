@@ -1,276 +1,196 @@
 # End-to-End Authentication Flows
 
-**Stack:** NestJS API · Next.js (App Router) · NextAuth (for SSO) · React Native (mobile)  
-**Data model:** `users`, `auth_identities`, `sessions`, `devices`
+This document describes the authentication behavior currently implemented by
+the NestJS API. The main data models are `users`, `auth_identities`, `sessions`,
+and `devices`.
 
-This document explains how authentication works for:
+## Token and cookie model
 
-- **Web – Email & Password**
-- **Web – SSO via NextAuth (Google)**
-- **Mobile – React Native (Email/Password & SSO exchange)**
-- **Devices** — registration, heartbeat, and linking sessions to devices
+- Access tokens expire after 15 minutes.
+- Refresh tokens expire after 30 days.
+- JWTs contain `sub` (user ID), `sid` (session ID), and `typ` (token type).
+- Login and Google SSO set the HTTP-only `access_token` and `refresh_token`
+  cookies with `SameSite=Lax`, path `/`, and `Secure` in production.
+- Login and Google SSO return `{ user, accessToken }`; they do not return the
+  refresh token in JSON.
+- The current `AuthGuard` reads the access token from the cookie named by
+  `AUTH_COOKIE_NAME`. Bearer-only authentication is not yet supported by that
+  guard.
+- Refresh and logout currently read `refresh_token` from the cookie.
 
-> **Terminology (important)**
->
-> - **Access token**: short-lived JWT (e.g., 10–20 min). Used on _every_ request (`jwt` cookie on web; `Authorization: Bearer` on mobile).
-> - **Refresh token**: long-lived JWT (e.g., 30–60 days). Used only at `/api/refresh` to rotate tokens.
-> - **Session row**: DB record with `id` (sid), `refresh_token_hash`, `expires_at`, `revoked_at`, `ip`, `user_agent`, optional `device_id`.
-> - **Identity row**: DB record (`auth_identities`) per user×provider (password/google/...), stores `provider_uid`, `password_hash` (password only), `last_login_at`.
-> - **Device row**: DB record (`devices`) per installed app/browser instance; holds push token + metadata (`platform`, `locale`, `last_seen_at`, ...).
->
-> **Cookie names:** make them consistent across web: e.g., `jwt` for access and `refresh` for refresh. (Avoid mixing `refresh` vs `refresh_token`.)
+For the default configuration:
 
----
-
-## Shared Backend Behavior (NestJS)
-
-- **Option 2 (DB‑generated session id)** issuance (at login or SSO exchange):
-
-  1. **Insert** a shell session row to get DB `id` (sid).
-  2. **Sign once**: access/refresh with that `sid`.
-  3. **Update** the same row with `hash(refresh)`.
-  4. **Set cookies** (web) or **return tokens in JSON** (mobile).
-
-- **Refresh endpoint** (`POST /api/refresh`):
-
-  - Accepts refresh token from **cookie** (web) or **Authorization: Bearer <refresh>** header (mobile).
-  - Verifies JWT, checks DB hash & `revoked_at`, rotates tokens, updates stored hash, responds with **new access+refresh** (cookies for web, JSON for mobile).
-
-- **Logout** (`POST /api/logout`):
-
-  - Reads refresh token (cookie/header) to discover `sid`, sets `revoked_at`, clears cookies (web).
-
-- **Auth guard**:
-
-  - Verify **access** token from `jwt` cookie (web) or `Authorization: Bearer` header (mobile).
-  - Optionally accept either cookie or header for flexibility.
-
-- **Devices** (optional but recommended):
-  - `POST /api/devices/register` — upsert by `(user, appInstanceId)`; update push token & metadata.
-  - `POST /api/devices/heartbeat` — update `last_seen_at`.
-  - `PATCH /api/devices/:id/token` — update/clear push token.
-  - `GET /api/devices` — list user devices.
-  - `DELETE /api/devices/:id` — soft revoke device (optionally revoke sessions linked to it).
-  - On login/SSO, if client provides `appInstanceId`, **link** the new session to that `device_id`.
-
-> **CORS** (only for browser-to-API calls): enable `origin` for your web host(s) and `credentials: true` when using cookies across origins.
-
----
-
-## 1) Web – Email & Password
-
-### Sign-in
-
-**Request**
-
+```env
+AUTH_COOKIE_NAME=access_token
+AUTH_REFRESH_COOKIE_NAME=refresh_token
 ```
+
+## Shared session issuance
+
+Password login and Google SSO use the same session flow:
+
+1. Optionally upsert a device when `appInstanceId` is present.
+2. Insert a shell session to obtain its database-generated `id` (`sid`).
+3. Sign one access token and one refresh token containing that `sid`.
+4. Hash the refresh token and update the shell session.
+5. Set both cookies and return `{ user, accessToken }`.
+
+The session stores its user, refresh-token hash, expiry, optional IP and user
+agent, revocation timestamp, and optional device relation.
+
+## Web: email and password
+
+### Register
+
+```http
+POST /api/register
+Content-Type: application/json
+
+{
+  "firstName": "Alice",
+  "lastName": "Doe",
+  "email": "alice@example.com",
+  "password": "Password123!",
+  "passwordConfirm": "Password123!"
+}
+```
+
+The API creates a user with the `regular` role and stores the password hash in
+an `auth_identities` row with provider `password`.
+
+### Login
+
+```http
 POST /api/login
 Content-Type: application/json
 
 {
-  "email": "user@mail.com",
-  "password": "••••••••",
-  // optional device fields to attach session to device
-  "appInstanceId": "7e9f2f3b-...",
+  "email": "alice@example.com",
+  "password": "Password123!",
+  "appInstanceId": "11111111-1111-1111-1111-111111111111",
   "platform": "web",
-  "pushToken": null,
+  "pushToken": "optional-token",
   "locale": "en-US",
   "timezone": "Europe/Lisbon"
 }
 ```
 
-**Backend flow**
-
-1. Lookup user by email; verify password via `auth_identities(provider='password')` (bcrypt compare).
-2. `touchPasswordLogin` (optional): backfill identity if missing, update `last_login_at`, upgrade bcrypt cost if increased.
-3. (Optional) Upsert device by `(user, appInstanceId)`; keep the resulting `device_id` for the session.
-4. **Issue session** (DB‑generated id):
-   - Insert shell session → get `sid`.
-   - Sign **access** (short) & **refresh** (long) once with `sid`.
-   - Update session with `hash(refresh)` and `device_id` (if any).
-5. **Set httpOnly cookies** on the web domain: `jwt` (access), `refresh` (refresh).
-
-**Response**
+Only `email` and `password` are required. Device fields are optional. On a
+successful login, the API verifies the password identity, updates its last
+login information, creates a session, and sets both authentication cookies.
 
 ```json
 {
-  "user": {
-    /* profile */
-  },
+  "user": {},
   "accessToken": "<ACCESS_JWT>"
 }
 ```
 
-> The browser will rely on cookies for API calls; the body is optional convenience.
-
 ### Authenticated requests
 
-- Browser sends `Cookie: jwt=...` automatically.
-- Guard verifies access and authorizes.
+Browsers send `access_token` automatically when requests include credentials.
+The route-level `AuthGuard` verifies it and puts `sub` into `request.userId`.
+The global permissions guard then loads the user and role permissions.
 
 ### Refresh
 
-- On 401 or proactive logic, call `POST /api/refresh` (cookies are sent automatically).
-- API validates, rotates, and **sets new cookies**.
+```http
+POST /api/token/refresh
+Cookie: refresh_token=<REFRESH_JWT>
+```
+
+The endpoint verifies the refresh JWT and stored session hash, issues a new
+token pair with the same `sid`, updates that session's refresh hash and expiry,
+sets both cookies, and returns:
+
+```json
+{ "ok": true }
+```
 
 ### Logout
 
-```
+```http
 POST /api/logout
+Cookie: refresh_token=<REFRESH_JWT>
 ```
 
-- Backend revokes the session (`revoked_at=now()`), clears cookies.
+When the refresh token contains a session ID, the API revokes that session. It
+always clears both authentication cookies and returns `{ "message": "Success" }`.
 
----
+## Web: Google SSO
 
-## 2) Web – SSO via NextAuth (Google)
+```http
+POST /api/sso/google
+Content-Type: application/json
 
-### Sign-in
-
-1. User clicks “Continue with Google” → NextAuth performs OAuth.
-2. NextAuth `callbacks.signIn` receives `account.id_token`.
-3. NextAuth **exchanges** with backend:
-   ```
-   POST ${BACKEND}/api/sso/google
-   { "idToken": "<GOOGLE_ID_TOKEN>" }
-   ```
-4. Backend verifies Google ID token, finds/creates user, **issues session** (same as password flow), and **sets cookies** in the backend response.
-5. In the NextAuth callback, **mirror** backend cookies to the browser:
-   - Parse upstream `Set-Cookie` headers.
-   - Set **both** `jwt` and `refresh` cookies on the web domain.
-
-> Ensure the Google OAuth Client has the **exact** redirect URI `https://your-site/api/auth/callback/google` in Google Cloud Console.
-
-Everything else (requests, refresh, logout) is identical to email/password because the **backend session** is authoritative.
-
----
-
-## 3) Mobile – React Native
-
-### Storage & headers
-
-- Store tokens in **secure storage** (Keychain / EncryptedSharedPreferences / `expo-secure-store`).
-- Send **`Authorization: Bearer <access>`** on each API request.
-- Refresh uses **`Authorization: Bearer <refresh>`** (or a dedicated header) since cookies are not used.
-
-### Email & Password
-
-**Login**
-
-```
-POST ${API}/api/login
-{ "email": "...", "password": "...", "appInstanceId": "<Id>", "platform": "ios|android" }
-```
-
-**Response**
-
-```json
 {
-  "user": {
-    /* profile */
-  },
-  "accessToken": "<ACCESS_JWT>",
-  "refreshToken": "<REFRESH_JWT>"
+  "idToken": "<GOOGLE_ID_TOKEN>",
+  "appInstanceId": "22222222-2222-2222-2222-222222222222",
+  "platform": "web"
 }
 ```
 
-- Save both tokens securely.
-- Optionally call `POST /api/devices/register` to register/refresh the push token & metadata.
-- Include `appInstanceId` in login to link the new session to the device.
+The backend verifies the ID token against `GOOGLE_CLIENT_ID`, requires a
+verified email, finds or creates the local user, and upserts a Google identity
+using the Google `sub`. It then follows the shared session issuance flow.
 
-**Authenticated request**
+If NextAuth performs the Google OAuth flow, the server-side integration must
+forward the backend's `Set-Cookie` headers to the browser. Configure the exact
+NextAuth callback URL in Google Cloud Console.
 
-```
-GET ${API}/api/user
-Authorization: Bearer <ACCESS_JWT>
-```
+## Password invitation and reset
 
-**Refresh**
+- `POST /api/users` creates a user, issues an `invite` token, and emails a link
+  built from `PUBLIC_FE_APP_URL`.
+- `POST /api/forgot-password` always returns the same success response so it
+  does not reveal whether an email exists.
+- `POST /api/set-password` accepts `type: "invite" | "reset"`, validates and
+  consumes the token, and upserts the password identity.
+- `PATCH /api/users/password` updates the authenticated user's password
+  identity.
 
-```
-POST ${API}/api/refresh
-Authorization: Bearer <REFRESH_JWT>
-```
+Password tokens are stored as SHA-256 hashes, expire after 48 hours by default, and are
+single-use.
 
-- API validates vs `sessions.refresh_token_hash`, rotates tokens, returns **new access+refresh** in JSON.
-- Replace stored tokens and retry the original request.
+## Devices
 
-**Logout**
+### Supported routes
 
-```
-POST ${API}/api/logout
-Authorization: Bearer <REFRESH_OR_ACCESS_JWT>
-```
+- `POST /api/devices/register` upserts by `(user, appInstanceId)` and updates
+  metadata and `lastSeenAt`.
+- `POST /api/devices/heartbeat` updates `lastSeenAt`.
+- `PATCH /api/devices/:id/token` replaces or clears the push token and rejects
+  revoked devices.
+- `GET /api/devices` lists non-revoked devices, newest activity first.
+- `DELETE /api/devices/:id` sets `revokedAt`.
 
-- Revoke session on server; delete tokens from secure storage.
+`appInstanceId` must be a UUID. Supported platforms are `ios`, `android`, and
+`web`. The default device list limit is 50.
 
-### Mobile SSO
+When login or Google SSO includes `appInstanceId`, the resulting device is
+attached to the new session.
 
-- Use native/Expo auth to obtain a **Google ID token** (PKCE recommended).
-- Exchange with backend:
-  ```
-  POST ${API}/api/sso/google
-  { "idToken": "<GOOGLE_ID_TOKEN>", "appInstanceId": "<Id>", "platform": "ios|android" }
-  ```
-- Backend issues session and returns access+refresh in JSON.
-- Store tokens securely.
+## Mobile status
 
----
+The DTOs accept `ios` and `android`, and `AuthService.getUserId` can extract a
+Bearer access token. However, mobile token authentication is not complete:
 
-## Devices Integration
+- `AuthGuard` still requires the access cookie.
+- Refresh and logout read the refresh cookie rather than a Bearer token.
+- Login and Google SSO do not return `refreshToken` in JSON.
 
-### Schema (essentials)
+Until those three contracts are implemented, native clients need cookie
+handling or a backend update; they cannot rely on the previously proposed
+Bearer-only flow.
 
-- `id` (id), `user_id`, `app_instance_id` (id), `platform` (`ios|android|web`),  
-  `push_token` (or WebPush subscription fields), `locale`, `timezone`, `model`, `os_version`, `app_version`,  
-  `last_seen_at`, `revoked_at`.
+## Security and deployment notes
 
-### API
-
-- `POST /api/devices/register` — upsert by `(user, appInstanceId)`; update push token & metadata; set `last_seen_at=now()`; returns `device_id`.
-- `POST /api/devices/heartbeat` — `{ appInstanceId }` → updates `last_seen_at`.
-- `PATCH /api/devices/:id/token` — replace/clear push token.
-- `GET /api/devices` — list devices for the current user.
-- `DELETE /api/devices/:id` — soft revoke device; optionally revoke sessions linked to it.
-
-### Link session → device (on login/SSO)
-
-- If request included `appInstanceId`, resolve device and set `session.device_id` when inserting the session row.
-- “Log out this device” UI can revoke all sessions with that `device_id`.
-
----
-
-## Error Handling & Security Notes
-
-- Rate-limit: `/api/login`, `/api/sso/*`, `/api/refresh`, `/api/forgot-password`.
-- On password change, consider bumping a `tokenVersion` claim and revoking/forcing refresh.
-- Always store **hash(refresh)**, never the raw string.
-- For mobile refresh, ensure the backend accepts **Bearer refresh** (header) in addition to cookies.
-- Align **TTL**: access ~15m; refresh 30–60d; rotate on each refresh for sliding sessions.
-- Keep cookie flags: `httpOnly`, `sameSite=lax`, `secure` in production; path `/`.
-- CORS only when the browser calls the API directly across origins; server-to-server Next → Nest needs none.
-
----
-
-## Quick Checklists
-
-### Web (Email/Password)
-
-- [ ] `/api/login` creates session, sets `jwt` + `refresh` cookies.
-- [ ] Guard reads `jwt` cookie; `/api/refresh` rotates cookies.
-- [ ] `/api/logout` revokes session and clears cookies.
-- [ ] (Optional) Attach session to device if `appInstanceId` present.
-
-### Web (SSO via NextAuth)
-
-- [ ] NextAuth has Google redirect URI registered in Google Cloud Console.
-- [ ] `callbacks.signIn` exchanges `account.id_token` with backend at `/api/sso/google`.
-- [ ] Mirror **both** `jwt` and `refresh` cookies to the browser in the callback.
-- [ ] Everything else identical to email/password flow.
-
-### Mobile (React Native)
-
-- [ ] Store tokens in secure storage; send Bearer access on each request.
-- [ ] `POST /api/refresh` accepts **Bearer refresh**; returns new tokens (JSON).
-- [ ] Register/heartbeat devices; update push tokens when they rotate.
-- [ ] Include `appInstanceId` at login/SSO to attach session to device.
+- Keep `JWT_SECRET` strong and private.
+- Keep `BCRYPT_COST` appropriate for the deployment environment; the default
+  fallback is 12.
+- Never store raw refresh tokens or password-reset tokens in the database.
+- Configure an explicit CORS origin when sending credentialed browser requests.
+  The current `origin: '*'` setting in `main.ts` should be tightened before
+  production.
+- Rate limiting is configured globally at 10 requests per 60 seconds, with the
+  avatar endpoint limited to 5 requests per 60 seconds.

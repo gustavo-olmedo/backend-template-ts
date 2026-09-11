@@ -12,21 +12,24 @@ This document explains what **auth_identities**, **sessions**, and **devices** r
 **Stores**
 
 - `provider` — one of: `password`, `google`, `apple`, `github`.
-- `provider_uid` — **email** for `password`; **`sub`** (stable subject) for Google; similar stable IDs for other IdPs.
-- `password_hash` — present **only** when `provider='password'`.
-- `last_login_at` — timestamp of last successful sign-in with this provider.
-- _(optional)_ `email_verified_at` — when the IdP verified the email.
+- `providerUid` — **email** for `password`; **`sub`** (stable subject) for Google; similar stable IDs for other IdPs.
+- `passwordHash` — present **only** when `provider='password'` and excluded from normal selects.
+- `lastLoginAt` — timestamp of last successful sign-in with this provider.
+- _(optional)_ `emailVerifiedAt` — when the IdP verified the email.
 
-**Constraints (recommended)**
+**Constraints (implemented)**
 
-- `UNIQUE(provider, provider_uid)` — prevents duplicate identities per provider.
+- `UNIQUE(provider, providerUid)` — prevents duplicate identities per provider.
 - `UNIQUE(user, provider)` — at most one identity per provider per user.
 
 **Notes**
 
-- Keep `provider_uid` in sync if the user’s email changes (for `password`).
-- On password login, you may **rehash** if you increase bcrypt cost and update `last_login_at`.
-- On SSO, **lookup by (provider, provider_uid)** first; if not found and `email_verified=true`, optionally link to an existing user by email.
+- Password login keeps `providerUid` aligned with the user's current email,
+  updates `lastLoginAt`, and can upgrade the bcrypt cost.
+- The current Google flow first finds or creates a user by verified email, then
+  upserts that user's Google identity using the provider `sub`.
+- The model type includes `apple` and `github`, but only password and Google
+  authentication endpoints are currently implemented.
 
 ---
 
@@ -37,17 +40,18 @@ This document explains what **auth_identities**, **sessions**, and **devices** r
 
 **Stores**
 
-- `refresh_token_hash` — hash of the refresh token (never store the raw token).
-- `expires_at` — when the session naturally expires.
-- `revoked_at` — set when the session is invalidated (logout, security action).
-- `ip`, `user_agent` — context for security/auditing.
-- _(optional)_ `device_id` — link to a `devices` row for “log out this device”.
+- `refreshTokenHash` — hash of the refresh token (never store the raw token).
+- `expiresAt` — when the session naturally expires.
+- `revokedAt` — set when the session is invalidated (logout or a security action).
+- `ip`, `userAgent` — context for security/auditing.
+- _(optional)_ `device` — relation to a `devices` row.
 
 **Lifecycle**
 
 - Created at login/SSO.
 - Read/validated during refresh (compare provided refresh token to hash).
-- Rotated (hash updated) on successful refresh.
+- On refresh, the current controller rotates the hash and expiry on the same
+  session so the `sid` remains valid.
 - Revoked on logout or admin action.
 - Short/medium-lived compared to devices and identities.
 
@@ -60,16 +64,17 @@ This document explains what **auth_identities**, **sessions**, and **devices** r
 
 **Stores**
 
-- `app_instance_id` — stable random Id kept in secure storage on the client.
+- `appInstanceId` — stable random UUID kept in secure storage on the client.
 - `platform` — `ios`, `android`, or `web`.
-- `push_token` (and/or Web Push subscription fields).
-- `locale`, `timezone`, `model`, `os_version`, `app_version`.
-- `last_seen_at`, `revoked_at`.
+- `pushToken` and optional Web Push subscription fields.
+- `locale`, `timezone`, `model`, `osVersion`, `appVersion`.
+- `lastSeenAt`, `revokedAt`.
 
 **Notes**
 
 - Tokens can rotate; upsert on app start or when token changes.
-- Optionally link new **sessions** to a **device** (by `app_instance_id`) during login/SSO.
+- Login and Google SSO link new **sessions** to a device when
+  `appInstanceId` is provided.
 
 ---
 
@@ -88,11 +93,12 @@ This document explains what **auth_identities**, **sessions**, and **devices** r
 
 ## Practical flows
 
-- **Register (password):** create `users` row + `auth_identity(password)` with `password_hash`.
-- **Login (password):** verify via `auth_identity(password)` → create `session` → (optional) attach `device` → set cookies/tokens → update `last_login_at` (and rehash if needed).
-- **Login (SSO):** verify IdP → find/create user → `upsertSso(provider, provider_uid)` → create `session` → (optional) attach `device` → set cookies/tokens.
-- **Refresh:** validate refresh token vs `sessions.refresh_token_hash` → rotate tokens → update hash.
-- **Logout:** set `sessions.revoked_at` and clear cookies/tokens.
+- **Register (password):** create `users` row + `auth_identity(password)` with `passwordHash`.
+- **Login (password):** verify via `auth_identity(password)` → create `session` → (optional) attach `device` → set cookies/tokens → update `lastLoginAt` (and rehash if needed).
+- **Login (SSO):** verify IdP → find/create user → `upsertSso(provider, providerUid)` → create `session` → (optional) attach `device` → set cookies/tokens.
+- **Refresh:** validate refresh token vs `sessions.refreshTokenHash` → issue a
+  replacement token pair → update the same session's hash and expiry.
+- **Logout:** set `sessions.revokedAt` and clear both cookies.
 - **Set/Reset password:** write/overwrite `auth_identity(password)` only (and optionally revoke other sessions).
 
 ---
@@ -102,6 +108,7 @@ This document explains what **auth_identities**, **sessions**, and **devices** r
 - Use a centralized `BCRYPT_COST` (e.g., 12) and **lazy rehash** older password hashes when users log in.
 - Prefer **provider stable IDs** (e.g., Google `sub`) for SSO linking instead of email.
 - Add indexes on common queries:
-  - `sessions(user_id, revoked_at, expires_at)`
-  - `devices(user_id, last_seen_at)`
-  - `auth_identities(provider, provider_uid)` and `(user_id, provider)`.
+  - `sessions(user, revokedAt, expiresAt)` is implemented.
+  - `devices(user, revokedAt, lastSeenAt)` is implemented.
+  - The two identity uniqueness constraints are implemented; add further
+    indexes only after measuring actual query patterns.
