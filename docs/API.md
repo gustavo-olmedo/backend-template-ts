@@ -4,9 +4,13 @@ Base URL (dev): **http://localhost:8000/api**
 
 Authentication:
 
-- Most endpoints require a **Bearer access token** in `Authorization` header.
-- `POST /refresh` and `POST /logout` rely on **HTTP-only cookies** set during login/SSO.
-- `POST /login` returns `{ user, accessToken }` and also sets cookies for refresh.
+- Protected endpoints currently require the HTTP-only `access_token` cookie.
+- `POST /token/refresh` and `POST /logout` use the HTTP-only
+  `refresh_token` cookie.
+- `POST /login` and `POST /sso/google` return `{ user, accessToken }` and set
+  both cookies.
+- Although some internal helpers understand Bearer access tokens, the current
+  `AuthGuard` is cookie-only. Use the cookie jar in the examples below.
 
 Example for saving cookies with `curl`:
 
@@ -37,13 +41,14 @@ curl -X POST http://localhost:8000/api/register \
         "passwordConfirm": "Password123!" }'
 ```
 
-**Response**: `200 OK` → `User` JSON.
+**Response**: `201 Created` → `User` JSON.
 
 ---
 
 ### POST `/login`
 
-Authenticate with email/password. Sets refresh cookie; returns access token.
+Authenticate with email/password. Creates a session, sets both authentication
+cookies, and returns the access token.
 
 ```bash
 curl -i -X POST http://localhost:8000/api/login \
@@ -54,20 +59,20 @@ curl -i -X POST http://localhost:8000/api/login \
         "platform": "web", "pushToken": null }'
 ```
 
-**Response**: `200 OK` → `{ user, accessToken }`
+**Response**: `201 Created` → `{ user, accessToken }`
 
 ---
 
-### POST `/refresh`
+### POST `/token/refresh`
 
 Get a new access/refresh pair using refresh cookie.
 
 ```bash
-curl -i -X POST http://localhost:8000/api/refresh \
+curl -i -X POST http://localhost:8000/api/token/refresh \
   -c cookies.txt -b cookies.txt
 ```
 
-**Response**: `200 OK` → `{ ok: true }` and sets new cookies.
+**Response**: `201 Created` → `{ ok: true }` and sets new cookies.
 
 ---
 
@@ -80,7 +85,7 @@ curl -X POST http://localhost:8000/api/logout \
   -c cookies.txt -b cookies.txt
 ```
 
-**Response**: `200 OK` → `{ message: "Success" }`
+**Response**: `201 Created` → `{ message: "Success" }`
 
 ---
 
@@ -94,7 +99,7 @@ curl -X POST http://localhost:8000/api/forgot-password \
   -d '{ "email": "alice@mail.com" }'
 ```
 
-**Response**: `200 OK` → `{ ok: true, message: "If that email exists, we sent a reset link." }`
+**Response**: `201 Created` → `{ ok: true, message: "If that email exists, we sent a reset link." }`
 
 ---
 
@@ -111,7 +116,7 @@ curl -X POST http://localhost:8000/api/set-password \
         "passwordConfirm": "NewPassw0rd!" }'
 ```
 
-**Response**: `200 OK` → `{ ok: true, message: "Password updated" }`
+**Response**: `201 Created` → `{ ok: true, message: "Password updated" }`
 
 > _Implementation note_: Password hashes live in `auth_identities` (`provider="password"`).
 
@@ -129,7 +134,7 @@ curl -X POST http://localhost:8000/api/sso/google \
         "platform": "web" }'
 ```
 
-**Response**: `200 OK` → `{ user, accessToken }`
+**Response**: `201 Created` → `{ user, accessToken }`
 
 ---
 
@@ -139,7 +144,7 @@ Current user profile.
 
 ```bash
 curl http://localhost:8000/api/user \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ---
@@ -152,7 +157,7 @@ Register or upsert a device by `appInstanceId`.
 
 ```bash
 curl -X POST http://localhost:8000/api/devices/register \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "appInstanceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
         "platform": "web",
@@ -161,7 +166,7 @@ curl -X POST http://localhost:8000/api/devices/register \
         "timezone": "Europe/Lisbon" }'
 ```
 
-**Response**: `200 OK` → `{ id: "<DEVICE_ID>" }`
+**Response**: `201 Created` → `{ id: "<DEVICE_ID>" }`
 
 ---
 
@@ -171,12 +176,12 @@ Mark device as seen now.
 
 ```bash
 curl -X POST http://localhost:8000/api/devices/heartbeat \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "appInstanceId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" }'
 ```
 
-**Response**: `200 OK` → `{ ok: true }`
+**Response**: `201 Created` → `{ ok: true }`
 
 ---
 
@@ -186,9 +191,9 @@ Update push token.
 
 ```bash
 curl -X PATCH http://localhost:8000/api/devices/<DEVICE_ID>/token \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
-  -d '{ "pushToken": "NEW_TOKEN_OR_NULL" }'
+  -d '{ "pushToken": null }'
 ```
 
 **Response**: `200 OK` → `{ ok: true }`
@@ -201,7 +206,7 @@ List current user's devices.
 
 ```bash
 curl http://localhost:8000/api/devices \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ---
@@ -212,7 +217,7 @@ Revoke a device.
 
 ```bash
 curl -X DELETE http://localhost:8000/api/devices/<DEVICE_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 **Response**: `200 OK` → `{ ok: true }`
@@ -225,7 +230,7 @@ curl -X DELETE http://localhost:8000/api/devices/<DEVICE_ID> \
 
 ```bash
 curl http://localhost:8000/api/permissions \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ---
@@ -234,16 +239,19 @@ curl http://localhost:8000/api/permissions \
 
 ### GET `/roles`
 
+Returns active roles with their permissions. The internal `isActive` and
+`isSystem` flags are omitted from this list response.
+
 ```bash
 curl http://localhost:8000/api/roles \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ### GET `/roles/:id`
 
 ```bash
 curl http://localhost:8000/api/roles/<ROLE_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ### POST `/roles`
@@ -252,7 +260,7 @@ Create a role with attached permissions.
 
 ```bash
 curl -X POST http://localhost:8000/api/roles \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "name": "moderator", "permissionIds": ["<PERMISSION_ID>"] }'
 ```
@@ -263,18 +271,18 @@ Update a role.
 
 ```bash
 curl -X PUT http://localhost:8000/api/roles/<ROLE_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "name": "moderator", "permissionIds": ["<PERMISSION_ID>"] }'
 ```
 
 ### DELETE `/roles/:id`
 
-Soft-delete (deactivate) non-system roles.
+Soft-delete (deactivate) non-system roles. System roles are returned unchanged.
 
 ```bash
 curl -X DELETE http://localhost:8000/api/roles/<ROLE_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ---
@@ -284,15 +292,17 @@ curl -X DELETE http://localhost:8000/api/roles/<ROLE_ID> \
 ### GET `/users` (paginated)
 
 ```bash
-curl http://localhost:8000/api/users \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+curl 'http://localhost:8000/api/users?page=1' \
+  -b cookies.txt
 ```
+
+Pages contain 7 users and return `{ data, meta: { total, page, lastPage } }`.
 
 ### GET `/users/:id`
 
 ```bash
 curl http://localhost:8000/api/users/<USER_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ### POST `/users`
@@ -301,13 +311,13 @@ Create a user and send invite email with password token.
 
 ```bash
 curl -X POST http://localhost:8000/api/users \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "firstName": "John", "lastName": "Smith",
         "email": "john@mail.com", "roleId": "<ROLE_ID>" }'
 ```
 
-**Response**: `200 OK` → `User` JSON
+**Response**: `201 Created` → `User` JSON
 
 ---
 
@@ -317,7 +327,7 @@ Update user and role.
 
 ```bash
 curl -X PUT http://localhost:8000/api/users/<USER_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "firstName": "John", "lastName": "Smith",
         "email": "john.smith@mail.com", "roleId": "<ROLE_ID>" }'
@@ -331,7 +341,7 @@ Update the current user's profile.
 
 ```bash
 curl -X PATCH http://localhost:8000/api/users/info \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "firstName": "Alice", "lastName": "Doe", "email": "alice@mail.com" }'
 ```
@@ -344,7 +354,7 @@ Change current user's password.
 
 ```bash
 curl -X PATCH http://localhost:8000/api/users/password \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -H "Content-Type: application/json" \
   -d '{ "password": "NewPassw0rd!", "passwordConfirm": "NewPassw0rd!" }'
 ```
@@ -359,7 +369,7 @@ Upload/replace avatar (`multipart/form-data`).
 
 ```bash
 curl -X PATCH http://localhost:8000/api/users/avatar \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -b cookies.txt \
   -F "avatar=@/path/to/image.jpg"
 ```
 
@@ -373,7 +383,7 @@ curl -X PATCH http://localhost:8000/api/users/avatar \
 
 ```bash
 curl -X DELETE http://localhost:8000/api/users/<USER_ID> \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
+  -b cookies.txt
 ```
 
 ---
@@ -395,7 +405,8 @@ Common errors: `400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not 
 ## 🧪 Notes for local testing
 
 - Use `-c cookies.txt -b cookies.txt` with `curl` for routes that rely on cookies.
-- Access tokens can be passed via `Authorization: Bearer <ACCESS_TOKEN>`.
+- Protected routes currently need the `access_token` cookie; Bearer-only calls
+  are not yet accepted by `AuthGuard`.
 - Default admin comes from seeder env: `DEFAULT_ADMIN_EMAIL`, `DEFAULT_ADMIN_PASSWORD`.
 
 ---
