@@ -4,7 +4,7 @@ A ready-to-use NestJS backend template with:
 
 - PostgreSQL via Docker
 - Role & Permission system (seeders included)
-- Authentication with JWT (HTTP-only cookies for refresh) + **Password identities in `auth_identities`**
+- Authentication with JWT (HTTP-only access and refresh cookies) + **password identities in `auth_identities`**
 - **Sessions** table with refresh-token rotation
 - **Devices** tracking (register/heartbeat/push token)
 - **Google SSO** (verify ID token server-side)
@@ -36,17 +36,19 @@ Create a `.env` file based on the provided `.env.example`:
 cp .env.example .env
 ```
 
-Fill in the values (or leave the defaults):
+Fill in the values. The following development example is based on
+`.env.example`:
 
 ```env
-NODE_ENV=test
-PUBLIC_BASE_URL=http://localhost:8000 #runs in 3000 but docker-compose maps it to 8000
+NODE_ENV=development
+PUBLIC_BASE_URL=http://localhost:8000
+PUBLIC_FE_APP_URL=http://localhost:3000
 
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
 POSTGRES_PASSWORD=postgres
 POSTGRES_USER=postgres
-POSTGRES_DATABASE=test_db
+POSTGRES_DATABASE=postgres
 
 DEFAULT_ADMIN_EMAIL=admin@mail.com
 DEFAULT_ADMIN_PASSWORD=admin
@@ -57,21 +59,24 @@ AUTH_REFRESH_COOKIE_NAME=refresh_token
 JWT_SECRET=JWT_SECRET
 BCRYPT_COST=12
 
-# Test (local saving)
+# Dev (local saving)
 FILE_STORAGE_DRIVER=local
 UPLOADS_ROOT=./uploads
 UPLOADS_AVATAR_DIR=avatars
 
-
 # emails
-MAIL_TRANSPORT=smtp://USERNAME:PASSWORD@smtp.ethereal.email:587 # Create credentials at https://ethereal.email/ and view messages in their web UI
+MAIL_TRANSPORT=smtp://USERNAME:PASSWORD@smtp.ethereal.email:587
 MAIL_FROM=gustavoemailprueba@gmail.com
 
-# sso gogle
+# sso google
 GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID
 ```
 
-> 🔐 Make sure to use a strong `JWT_SECRET` in production!
+`PUBLIC_FE_APP_URL` is used to build invitation and password-reset links. In
+production, use a strong `JWT_SECRET`, configure real mail credentials, and set
+`CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, and
+optionally `CLOUDINARY_FOLDER`. Production selects Cloudinary storage even when
+`FILE_STORAGE_DRIVER` is not explicitly set to `cloudinary`.
 
 ### Start the application
 
@@ -125,16 +130,20 @@ Email:    admin@mail.com
 Password: admin
 ```
 
-> You’ll receive a JWT token to authenticate future requests.
+The login response contains an `accessToken` and sets the HTTP-only
+`access_token` and `refresh_token` cookies. The current route guards authenticate
+browser requests through the `access_token` cookie.
 
 ## 🧪 Useful Commands
 
-| Command                       | Description                                               |
-| ----------------------------- | --------------------------------------------------------- |
-| `yarn start:dev`              | Start the app in watch mode locally (if not using Docker) |
-| `docker compose up`           | Start the backend and DB                                  |
-| `yarn seed:permissions-roles` | Seed initial data                                         |
-| `yarn seed:users`             | Seed 10 regular users                                     |
+| Command                              | Description                                                     |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `yarn start:dev`                     | Start the app locally in watch mode                             |
+| `docker compose up`                  | Start the backend, PostgreSQL, and PgAdmin                      |
+| `yarn seed:permissions-roles:docker` | Seed permissions, roles, and the admin inside Docker            |
+| `yarn seed:users:docker`             | Seed 10 regular users inside Docker                             |
+| `yarn test`                          | Run unit tests                                                  |
+| `yarn test:e2e:docker`               | Run e2e tests against Docker (requires `nest-backend` to be up) |
 
 ## 🛠 Tech Stack
 
@@ -165,6 +174,9 @@ src/
 - Add sortBy and desc parameters to paginate to sort entities by property
 - Add rate limits & audit logs on auth endpoints
 - Add email change flow that syncs `providerUid` for password identity
+- Add complete Bearer-token support for mobile refresh, logout, and guards
+- Replace wildcard CORS with explicit allowed origins when using credentials
+- Replace TypeORM `synchronize` with migrations before production
 - Set up Swagger docs
 
 ## PgAdmin DB setup
@@ -182,7 +194,7 @@ src/
    Password: postgres
 7. Click Save to save the server configuration.
 
-## More about Compiling and runing the project
+## More about compiling and running the project
 
 ```bash
 # development
@@ -211,8 +223,8 @@ $ yarn run test:cov:docker
 # unit tests
 $ yarn run test
 
-# e2e tests
-$ yarn run test:e2e
+# e2e tests (requires a PostgreSQL host matching `.env.test`; normally run in Docker)
+$ yarn run test:e2e:docker
 
 # test coverage
 $ yarn run test:cov
